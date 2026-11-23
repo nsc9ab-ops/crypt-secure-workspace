@@ -1,12 +1,12 @@
 {
-  "name": "CRYPT Secure Workspace",
-  "short_name": "CRYPT",
-  "description": "A customizable private workspace concept.",
+  "name": "Scott.F.N Personal Hub",
+  "short_name": "Scott.F.N",
+  "description": "A private, local-first personal workspace.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#090d12",
-  "theme_color": "#090d12",
+  "background_color": "#071114",
+  "theme_color": "#071114",
   "icons": [
     { "src": "./app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

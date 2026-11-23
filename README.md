@@ -1,5 +1,7 @@
-# CRYPT Secure Workspace
+# Scott.F.N Personal Hub
 
-Static website concept and locally working interface. This public repository contains the website only; the app currently does not provide encrypted multi-user messaging or shared screen transmission.
+Live site: https://nsc9ab-ops.github.io/crypt-secure-workspace/
 
-GitHub Pages deploys the contents of this repository using the `Publish CRYPT website` workflow.
+A futuristic, local-first personal workspace with messages, a calendar, camera capture, QR/barcode home inventory, a private file vault, local financial record signing, current-device location, and appearance settings. The app has no user accounts, server data sync, or end-to-end messaging.
+
+The site is published through GitHub Pages using the `Publish Scott.F.N website` workflow. Financial files, notes, location, and signatures remain in the user’s browser; uploaded files are not encrypted at rest. A local signature is not identity verification or payment authorization.

@@ -1,4 +1,4 @@
-name: Publish CRYPT website
+name: Publish Scott.F.N website
 
 on:
   push:

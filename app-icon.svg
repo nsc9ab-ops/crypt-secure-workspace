@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="30" fill="#0b1116"/>
-  <rect x="3" y="3" width="122" height="122" rx="28" fill="none" stroke="#347862" stroke-width="4"/>
-  <path d="M88 39a34 34 0 1 0 0 50" fill="none" stroke="#8bffd0" stroke-linecap="round" stroke-width="12"/>
-  <circle cx="93" cy="64" r="8" fill="#8bffd0"/>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#193d32"/><stop offset="1" stop-color="#081317"/></linearGradient></defs>
+  <rect width="128" height="128" rx="30" fill="url(#g)"/>
+  <rect x="3" y="3" width="122" height="122" rx="28" fill="none" stroke="#388d6f" stroke-width="4"/>
+  <text x="64" y="73" text-anchor="middle" fill="#65f2c1" font-family="Arial,sans-serif" font-weight="800" font-size="31" letter-spacing="-2">SFN</text>
+  <circle cx="64" cy="93" r="3" fill="#65f2c1"/>
 </svg>

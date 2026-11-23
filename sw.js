@@ -1,4 +1,4 @@
-const CACHE_NAME = 'crypt-shell-v1';
+const CACHE_NAME = 'sfn-shell-v2';
 const APP_FILES = ['./', './index.html', './manifest.webmanifest', './app-icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
