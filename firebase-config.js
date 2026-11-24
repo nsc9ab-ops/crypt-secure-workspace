@@ -4,7 +4,7 @@
  * be enabled before deploying; never put Admin SDK credentials in this file.
  */
 window.SFN_FIREBASE_CONFIG = {
-  apiKey: ***
+  apiKey: **
   authDomain: "scott-bac91.firebaseapp.com",
   projectId: "scott-bac91",
   storageBucket: "scott-bac91.firebasestorage.app",
