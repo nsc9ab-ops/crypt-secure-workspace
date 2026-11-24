@@ -15,6 +15,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.util.ArrayList;
+
 public final class MainActivity extends Activity {
     private static final int REQUEST_MEDIA = 41;
     private static final int REQUEST_GEO = 42;
@@ -22,6 +24,7 @@ public final class MainActivity extends Activity {
     private static final String SITE = "https://nsc9ab-ops.github.io/crypt-secure-workspace/";
     private WebView webView;
     private PermissionRequest pendingMediaRequest;
+    private String[] pendingMediaResources;
     private GeolocationPermissions.Callback pendingGeoCallback;
     private String pendingGeoOrigin;
     private ValueCallback<Uri[]> pendingFileCallback;
@@ -53,23 +56,34 @@ public final class MainActivity extends Activity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
-                boolean needsCamera = false;
+                ArrayList<String> requestedResources = new ArrayList<>();
+                ArrayList<String> androidPermissions = new ArrayList<>();
                 for (String resource : request.getResources()) {
-                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) needsCamera = true;
+                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                        requestedResources.add(resource);
+                        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
+                            androidPermissions.add(Manifest.permission.CAMERA);
+                    } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                        requestedResources.add(resource);
+                        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
+                            androidPermissions.add(Manifest.permission.RECORD_AUDIO);
+                    }
                 }
-                if (needsCamera && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                    pendingMediaRequest = request;
-                    requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_MEDIA);
-                } else if (needsCamera) {
-                    request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-                } else {
+                if (requestedResources.isEmpty()) {
                     request.deny();
-                }
+                } else if (!androidPermissions.isEmpty()) {
+                    pendingMediaRequest = request;
+                    pendingMediaResources = requestedResources.toArray(new String[0]);
+                    requestPermissions(androidPermissions.toArray(new String[0]), REQUEST_MEDIA);
+                } else request.grant(requestedResources.toArray(new String[0]));
             }
 
             @Override
             public void onPermissionRequestCanceled(PermissionRequest request) {
-                if (pendingMediaRequest == request) pendingMediaRequest = null;
+                if (pendingMediaRequest == request) {
+                    pendingMediaRequest = null;
+                    pendingMediaResources = null;
+                }
             }
 
             @Override
@@ -108,10 +122,13 @@ public final class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_MEDIA && pendingMediaRequest != null) {
             PermissionRequest request = pendingMediaRequest;
+            String[] resources = pendingMediaResources;
             pendingMediaRequest = null;
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-            } else request.deny();
+            pendingMediaResources = null;
+            boolean granted = grantResults.length > 0;
+            for (int result : grantResults) if (result != PackageManager.PERMISSION_GRANTED) granted = false;
+            if (granted && resources != null) request.grant(resources);
+            else request.deny();
         } else if (requestCode == REQUEST_GEO && pendingGeoCallback != null) {
             boolean granted = false;
             for (int result : grantResults) if (result == PackageManager.PERMISSION_GRANTED) granted = true;
