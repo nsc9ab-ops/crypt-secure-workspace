@@ -4,14 +4,15 @@
  * be enabled before deploying; never put Admin SDK credentials in this file.
  */
 window.SFN_FIREBASE_CONFIG = {
-  apiKey: "REPLACE_WITH_FIREBASE_WEB_API_KEY",
-  authDomain: "REPLACE_WITH_PROJECT.firebaseapp.com",
-  projectId: "REPLACE_WITH_PROJECT_ID",
-  appId: "REPLACE_WITH_FIREBASE_WEB_APP_ID"
+  apiKey: ***
+  authDomain: "scott-bac91.firebaseapp.com",
+  projectId: "scott-bac91",
+  storageBucket: "scott-bac91.firebasestorage.app",
+  messagingSenderId: "155240318820",
+  appId: "1:155240318820:web:da957b5ffd7e7091561c71",
+  measurementId: "G-VH9P8PJ1EG"
 };
 
-/* STUN-only calling can fail on some networks. Configure a TURN relay through
- * a provider or a protected token endpoint for reliable cross-network calls. */
 window.SFN_CALL_ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" }
 ];
