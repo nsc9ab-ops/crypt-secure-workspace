@@ -468,7 +468,7 @@ panel?.addEventListener('click',event=>{
 });
 window.addEventListener('sfn:render',()=>{if(appBridge.getState().view==='members')renderMembers();});
 window.addEventListener('sfn:unlocked',()=>{
-  void startFirebase();
+  if(appBridge.getState().view==='members')void startFirebase();
   if(firebaseAuth?.currentUser)void loadVerifiedUser(firebaseAuth.currentUser);
 });
 window.addEventListener('sfn:locked',()=>{
@@ -481,5 +481,5 @@ if(!document.querySelector('#memberRemoteAudio')){
   remoteAudio.id='memberRemoteAudio';remoteAudio.autoplay=true;remoteAudio.playsInline=true;remoteAudio.style.display='none';
   document.body.append(remoteAudio);
 }
-if(configured&&appBridge.isUnlocked?.())void startFirebase();
-window.addEventListener('online',()=>{if(configured&&appBridge.isUnlocked?.()&&!firebaseStarted)void startFirebase();});
+if(configured&&appBridge.isUnlocked?.()&&appBridge.getState().view==='members')void startFirebase();
+window.addEventListener('online',()=>{if(configured&&appBridge.isUnlocked?.()&&appBridge.getState().view==='members'&&!firebaseStarted)void startFirebase();});
