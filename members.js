@@ -59,6 +59,7 @@ function friendlyError(error){
   if(code.includes('invalid-credential')||code.includes('user-not-found')||code.includes('wrong-password'))return 'Email or password was not accepted.';
   if(code.includes('weak-password'))return 'Choose a stronger password with at least 12 characters.';
   if(code.includes('too-many-requests'))return 'Too many attempts. Wait a while and try again.';
+  if(code.includes('internal-error'))return 'Phone verification could not start. Refresh the page and confirm this site is an authorized Firebase domain.';
   if(code.includes('permission-denied'))return 'Firebase denied this action. Confirm the Firestore rules were deployed.';
   if(code.includes('unavailable')||code.includes('network-request-failed'))return 'The Internet service is unavailable. Check your connection and try again.';
   return error?.message||'The action could not be completed.';
