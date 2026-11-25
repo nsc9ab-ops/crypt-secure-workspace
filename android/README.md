@@ -1,9 +1,11 @@
-# Scott.F.N Phone Lock
+# Scott.F.N Android wrapper
 
-This native Android app provides a large **Lock a phone now** action and a second shortcut to Google Find Hub. The lock action opens [Android Remote Lock](https://android.com/lock); Google verifies the request and locks the selected phone. The Find Hub action opens [android.com/find](https://android.com/find), where you can locate, ring, mark lost, or erase a device. It installs as a separate **Phone Lock** app alongside older Scott.F.N installs, preserving their local data.
+This small Android app uses the supplied Scott.F.N emblem as its launcher icon and opens the hosted Scott.F.N site in Android WebView. It needs internet access. Browser storage belongs to this app installation and stays separate from Chrome and other phones.
 
-Prepare each phone before it is lost. On that phone, open **Settings → Google → All services → Theft protection → Remote Lock**, turn Remote Lock on, verify its phone number, and set the security challenge. Remote Lock requires an active SIM, internet access, and Find Hub enabled. Requirements and availability can vary by device; follow [Google's current instructions](https://www.android.com/articles/protect-your-device-with-secure-lock/).
+Camera, microphone, location, and file access are requested only after the corresponding site feature is used. Android permission prompts must be accepted as well as the website prompt. WhatsApp opens outside the app. Firebase member chat and calls require the Firebase project setup described in the main README.
 
-The app opens Google’s official services and does not collect Google passwords, device location, or personal data. It needs no Android permissions.
+The Phone security section is included in this same app. It opens Google's Remote Lock and Find Hub pages so you can lock, locate, mark as lost, or erase a lost Android phone. Enable Remote Lock ahead of time in Settings → Google → All services → Theft protection. Google handles sign-in and device actions; this app does not store your Google password.
 
-The checked-in build helper builds a debug-signed APK for direct installation. A Play Store release requires a separately managed release signing key and Play Console preparation.
+The password screen is a local browser lock, not an online account. Private messages, cycle notes, and financial signatures are encrypted locally after password unlock. Other app data and uploaded files remain in the app browser storage without at-rest encryption. The universal reset code `@254` permanently erases this installation’s app data; it cannot restore encrypted records.
+
+The checked-in build helper builds a debug-signed APK for direct testing. A Play Store release requires a separately managed release signing key and Play Console preparation.
