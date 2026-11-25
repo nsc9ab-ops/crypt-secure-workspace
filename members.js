@@ -54,7 +54,7 @@ function setStatus(text, isError=false){
 }
 function friendlyError(error){
   const code=error?.code||'';
-  if(code.includes('configuration-not-found')||String(error?.message||'').includes('CONFIGURATION_NOT_FOUND')||code.includes('operation-not-allowed')||String(error?.message||'').includes('OPERATION_NOT_ALLOWED'))return 'Email and password sign-in is disabled in this Firebase project. Open Authentication setup, enable Email/Password, save, then try again.';
+  if(code.includes('configuration-not-found')||String(error?.message||'').includes('CONFIGURATION_NOT_FOUND')||code.includes('operation-not-allowed')||String(error?.message||'').includes('OPERATION_NOT_ALLOWED'))return 'Phone sign-in is not fully configured in this Firebase project. Confirm Phone is enabled, set the SMS region policy, then try again.';
   if(code.includes('email-already-in-use'))return 'That email already has an account. Sign in instead.';
   if(code.includes('invalid-credential')||code.includes('user-not-found')||code.includes('wrong-password'))return 'Email or password was not accepted.';
   if(code.includes('weak-password'))return 'Choose a stronger password with at least 12 characters.';
