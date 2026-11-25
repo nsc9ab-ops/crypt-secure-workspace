@@ -15,7 +15,7 @@ The website and installed PWA use the Scott.F.N emblem. The Android launcher use
 The repository includes the client integration, `firestore.rules`, and `firestore.indexes.json`. The published site shows setup instructions until a Firebase Web app config is added to `firebase-config.js`. A Firebase project must be created in the owner's Google account; this repository cannot create or link the project automatically.
 
 1. Create a Firebase project and register a Web app. Copy its Web config values into `firebase-config.js` (`apiKey`, `authDomain`, `projectId`, and `appId`). Firebase Web config is public client config; never add Admin SDK keys or service account credentials.
-2. In Firebase Authentication, enable Email/Password and set up email verification. Add `nsc9ab-ops.github.io` to the authorized domains.
+2. In Firebase Authentication, enable Email/Password and set up email verification. Add `nsc9ab-ops.github.io` to the authorized domains. If the member form reports `configuration-not-found`, Authentication has not been enabled for the project yet; open the Authentication setup link shown on the Members page.
 3. Create a Cloud Firestore database.
 4. Install the Firebase CLI, authenticate with the project owner account, then deploy the included rules and index: `firebase deploy --only firestore --project YOUR_PROJECT_ID`.
 5. Publish the updated site. Members register with email and a password, verify email, sign in, then share their generated `SFN-XXXX-XXXX` username. A friend request must be accepted before messaging or calling.
