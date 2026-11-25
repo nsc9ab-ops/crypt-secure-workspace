@@ -11,6 +11,8 @@ let db = null;
 let currentUser = null;
 let memberProfile = null;
 let authMode = 'register';
+let phoneConfirmation = null;
+let phoneRecaptcha = null;
 let moduleError = '';
 let memberStatus = '';
 let relationships = [];
@@ -62,12 +64,14 @@ function friendlyError(error){
   return error?.message||'The action could not be completed.';
 }
 function configView(){
-  return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>Connect Firebase</h2><span class="tag warn">SETUP NEEDED</span></div><p class="hint">The member service is prepared, but this website is not connected to a Firebase project yet. A project supplies sign-in and the live message database.</p><ol class="hint" style="line-height:1.9;padding-left:20px"><li>Create a Firebase project and register a Web app.</li><li>Enable Email/Password sign-in. Errors such as <code>configuration-not-found</code> or <code>operation-not-allowed</code> mean this provider is not enabled.</li><li>Create a Cloud Firestore database.</li><li>Paste the public Web app configuration into <code>firebase-config.js</code>.</li><li>Deploy this project’s <code>firestore.rules</code> and indexes.</li><li>Add <code>nsc9ab-ops.github.io</code> to Authentication authorized domains.</li></ol><p class="hint">The Firebase Web config is public client configuration. Never put Admin SDK keys or service account credentials in this website.</p><a class="btn primary" href="https://console.firebase.google.com/project/nsc9ab-f382c/authentication/providers" target="_blank" rel="noopener noreferrer">Open Authentication setup ↗</a></div><div class="card"><div class="cardhead"><h2>Voice call setup</h2><span class="tag">WEBRTC</span></div><p class="hint">Voice calling uses WebRTC. A TURN relay is recommended so calls can connect when the two devices cannot reach each other directly. TURN credentials should come from a protected service and should not be committed into the public website.</p><p class="hint">Current placeholder configuration includes public STUN only, so calls may fail on some networks until a TURN service is configured.</p></div></div>';
+  return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>Connect Firebase</h2><span class="tag warn">SETUP NEEDED</span></div><p class="hint">The member service is prepared, but this website is not connected to a Firebase project yet. A project supplies phone sign-in and the live message database.</p><ol class="hint" style="line-height:1.9;padding-left:20px"><li>Create a Firebase project and register a Web app.</li><li>Enable Phone sign-in and configure its SMS region policy. Errors such as <code>configuration-not-found</code> or <code>operation-not-allowed</code> mean Phone is not enabled.</li><li>Add <code>nsc9ab-ops.github.io</code> to Authentication authorized domains.</li><li>Create a Cloud Firestore database.</li><li>Paste the public Web app configuration into <code>firebase-config.js</code>.</li><li>Deploy this project’s <code>firestore.rules</code> and indexes.</li></ol><p class="hint">Phone sign-in uses SMS and reCAPTCHA. Standard messaging rates may apply. The Firebase Web config is public client configuration; never put Admin SDK keys in this website.</p><a class="btn primary" href="https://console.firebase.google.com/project/nsc9ab-f382c/authentication/providers" target="_blank" rel="noopener noreferrer">Open Authentication setup ↗</a></div><div class="card"><div class="cardhead"><h2>Voice call setup</h2><span class="tag">WEBRTC</span></div><p class="hint">Voice calling uses WebRTC. A TURN relay is recommended so calls can connect when the two devices cannot reach each other directly. TURN credentials should come from a protected service and should not be committed into the public website.</p><p class="hint">Current placeholder configuration includes public STUN only, so calls may fail on some networks until a TURN service is configured.</p></div></div>';
 }
 function authView(){
   const registering=authMode==='register';
   const setupLink='<a class="btn subtle" href="https://console.firebase.google.com/project/nsc9ab-f382c/authentication/providers" target="_blank" rel="noopener noreferrer">Open Firebase Authentication setup ↗</a>';
-  return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>'+(registering?'Create a member account':'Member sign in')+'</h2><span class="tag">EMAIL VERIFIED</span></div><p class="hint">Each member gets a unique generated username after verifying their email. Share that username so other members can find you.</p>'+statusBox()+'<form id="memberAuthForm"><div class="field"><label for="memberEmail">Email</label><input id="memberEmail" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com"></div><div class="field"><label for="memberPassword">Password</label><input id="memberPassword" type="password" autocomplete="'+(registering?'new-password':'current-password')+'" required minlength="12" placeholder="At least 12 characters"></div><button class="btn primary" style="width:100%" type="submit">'+(registering?'Create account & send verification':'Sign in')+'</button></form><div class="button-row" style="margin-top:12px"><button class="btn subtle" data-member="toggle-auth">'+(registering?'Already a member? Sign in':'New here? Create account')+'</button>'+(registering?'':'<button class="btn subtle" data-member="password-reset">Send password reset email</button>')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Only verified members can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Do not send passwords, one-time codes, financial credentials, or highly sensitive health details here.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
+  const phone=phoneConfirmation?.phone||'';
+  const form=phoneConfirmation?'<div class="field"><label for="memberPhone">Phone number</label><input id="memberPhone" type="tel" value="'+esc(phone)+'" readonly></div><div class="field"><label for="memberCode">SMS verification code</label><input id="memberCode" inputmode="numeric" autocomplete="one-time-code" required maxlength="8" placeholder="Enter the code sent by SMS"></div><button class="btn primary" style="width:100%" id="memberAuthSubmit" type="submit">Verify phone and continue</button>':'<div class="field"><label for="memberPhone">Phone number</label><input id="memberPhone" type="tel" autocomplete="tel" required maxlength="20" placeholder="+1 555 123 4567"></div><div id="memberRecaptcha"></div><button class="btn primary" style="width:100%" id="memberAuthSubmit" type="submit">Send SMS verification code</button>';
+  return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>Sign in with your phone</h2><span class="tag">SMS VERIFIED</span></div><p class="hint">Use your phone number in international format. Firebase will send a one-time SMS code, then Scott.F.N will generate your member username.</p>'+statusBox()+'<form id="memberAuthForm">'+form+'</form><div class="button-row" style="margin-top:12px">'+(phoneConfirmation?'<button class="btn subtle" type="button" data-member="phone-start-over">Use a different number</button>':'<button class="btn subtle" type="button" data-member="toggle-auth">'+(registering?'Sign in with another number':'Create a member account')+'</button>')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Only phone-verified members can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Do not share your SMS code with another person.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
 }
 function profileHandle(){
   if(!memberProfile)return '';
@@ -117,7 +121,7 @@ function renderMembers(){
   document.querySelector('#crumbTitle').textContent='Members & calls';
   if(!configured){panel.innerHTML=configView();return;}
   if(!currentUser){panel.innerHTML=authView();return;}
-  if(!currentUser.emailVerified){panel.innerHTML=pageHeader()+'<div class="card"><div class="cardhead"><h2>Verify your email</h2><span class="tag warn">ACTION NEEDED</span></div>'+statusBox('Open the verification link sent to '+currentUser.email+'. Then return here and sign in again.')+'<div class="button-row"><button class="btn primary" data-member="resend-verification">Resend verification email</button><button class="btn" data-member="sign-out">Sign out</button></div></div>';return;}
+  if(currentUser.email&&!currentUser.phoneNumber&&!currentUser.emailVerified){panel.innerHTML=pageHeader()+'<div class="card"><div class="cardhead"><h2>Verify your email</h2><span class="tag warn">ACTION NEEDED</span></div>'+statusBox('This older account uses email verification. Sign out and use phone sign-in for new member accounts.')+'<div class="button-row"><button class="btn" data-member="sign-out">Sign out</button></div></div>';return;}
   panel.innerHTML=signedInView();
   const remoteAudio=document.querySelector('#memberRemoteAudio');
   if(remoteAudio&&remoteStream)remoteAudio.srcObject=remoteStream;
@@ -208,7 +212,7 @@ async function loadVerifiedUser(user){
   currentUser=user;
   if(!user){clearMemberSession();if(!memberStatus)memberStatus='Signed out.';appBridge.render();return;}
   if(!appBridge.isUnlocked?.())return;
-  if(!user.emailVerified){memberProfile=null;relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
+  if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
   try{
     memberProfile=await ensureProfile(user);
     memberStatus='Signed in as '+memberProfile.handle+'.';
@@ -244,22 +248,27 @@ async function reserveGeneratedProfile(user){return ensureProfile(user);}
 async function submitMemberAuth(event){
   event.preventDefault();
   if(!firebaseAuth)return setStatus('Firebase is still connecting. Check the Internet and retry.',true);
-  const email=document.querySelector('#memberEmail').value.trim();
-  const password=document.querySelector('#memberPassword').value;
   try{
-    setStatus(authMode==='register'?'Creating account and sending verification…':'Signing in…');
-    if(authMode==='register'){
-      if(password.length<12)throw Error('Use a password with at least 12 characters.');
-      const credential=await sdk.createUserWithEmailAndPassword(firebaseAuth,email,password);
-      await sdk.sendEmailVerification(credential.user);
-      await sdk.signOut(firebaseAuth);
-      setStatus('Verification email sent. Verify your address, then sign in to generate your username.');
-      authMode='login';appBridge.render();
-    }else{
-      const credential=await sdk.signInWithEmailAndPassword(firebaseAuth,email,password);
+    if(phoneConfirmation){
+      const code=document.querySelector('#memberCode')?.value.trim();
+      if(!code)throw Error('Enter the SMS verification code.');
+      setStatus('Verifying your phone…');
+      const credential=await phoneConfirmation.confirm(code);
+      phoneConfirmation=null;phoneRecaptcha=null;
       await loadVerifiedUser(credential.user);
-      if(!credential.user.emailVerified)setStatus('Verify your email before using member features.',true);
+      return;
     }
+    const phone=document.querySelector('#memberPhone')?.value.trim();
+    if(!/^\+[1-9]\d{7,14}$/.test(phone))throw Error('Enter a valid phone number with country code, for example +1 555 123 4567.');
+    setStatus('Preparing SMS verification…');
+    if(!phoneRecaptcha){
+      phoneRecaptcha=new sdk.RecaptchaVerifier(firebaseAuth,'memberRecaptcha',{size:'normal',callback:()=>{}});
+      await phoneRecaptcha.render();
+    }
+    const confirmation=await sdk.signInWithPhoneNumber(firebaseAuth,phone,phoneRecaptcha);
+    phoneConfirmation={phone,confirm:code=>confirmation.confirm(code)};
+    setStatus('SMS code sent. Enter it below to continue.');
+    appBridge.render();
   }catch(error){setStatus(friendlyError(error),true);}
 }
 async function lookupMember(event){
@@ -438,11 +447,7 @@ async function handleMemberAction(button){
   const action=button.dataset.member;
   try{
     if(action==='toggle-auth'){authMode=authMode==='register'?'login':'register';memberStatus='';appBridge.render();}
-    else if(action==='password-reset'){
-      const email=document.querySelector('#memberEmail')?.value.trim();
-      if(!email)return setStatus('Enter your email address first.',true);
-      await sdk.sendPasswordResetEmail(firebaseAuth,email);setStatus('Password reset email sent.');
-    }
+    else if(action==='phone-start-over'){phoneConfirmation=null;phoneRecaptcha?.clear?.();phoneRecaptcha=null;memberStatus='';appBridge.render();}
     else if(action==='resend-verification'){
       if(!firebaseAuth?.currentUser)return setStatus('Sign in again, then resend the verification email.',true);
       await sdk.sendEmailVerification(firebaseAuth.currentUser);setStatus('Verification email sent.');
