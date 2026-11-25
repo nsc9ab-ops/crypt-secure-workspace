@@ -477,7 +477,7 @@ panel?.addEventListener('click',event=>{
   const button=event.target.closest('[data-member]');
   if(button)void handleMemberAction(button);
 });
-window.addEventListener('sfn:render',()=>{if(appBridge.getState().view==='members')renderMembers();});
+window.addEventListener('sfn:render',()=>{if(appBridge.getState().view==='members'){renderMembers();if(configured&&appBridge.isUnlocked?.()&&!firebaseStarted)void startFirebase();}});
 window.addEventListener('sfn:unlocked',()=>{
   if(appBridge.getState().view==='members')void startFirebase();
   if(firebaseAuth?.currentUser)void loadVerifiedUser(firebaseAuth.currentUser);
