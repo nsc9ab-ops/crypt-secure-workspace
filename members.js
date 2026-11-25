@@ -39,6 +39,12 @@ let callTimeout = null;
 let incomingCall = null;
 let incomingCallToneId = '';
 let initialMessageSnapshot = true;
+let callStartedAt = 0;
+let callTimer = null;
+let keypadOpen = false;
+let callMuted = false;
+let speakerEnabled = true;
+let dtmfDigits = '';
 let firebaseStarted = false;
 
 appBridge.views.members = 'Members & calls';
@@ -125,7 +131,13 @@ function threadView(){
   }).join('');
   const callAction=activeCallRef?.id&&activeCallStatus!=='ended'?'end-call':'start-call';
   const callLabel=callAction==='end-call'?'End call':'☎ Call';
-  return '<div class="card"><div class="cardhead"><div><h2>'+esc(other.handle||'Member')+'</h2><small>Accepted member · Firebase</small></div><button class="btn small" data-member="'+callAction+'" '+(callBusy?'disabled':'')+'>'+callLabel+'</button></div><div id="memberCallStatus" class="hint" role="status">'+esc(callText)+'</div><div id="memberMessages" class="chatmessages" style="height:300px;min-height:200px;border:1px solid var(--line);border-radius:12px;margin:12px 0">'+(items||'<div class="chatwelcome">Start a conversation with '+esc(other.handle||'this member')+'.</div>')+'</div><form id="memberMessageForm" class="composer" style="padding:0;border:0"><textarea id="memberMessageInput" maxlength="3000" placeholder="Write a message…" required></textarea><button class="btn primary" type="submit">Send</button></form></div>';
+  return (activeCallRef&&activeCallStatus!=='ended'?callHud(other):'')+'<div class="card"><div class="cardhead"><div><h2>'+esc(other.handle||'Member')+'</h2><small>Accepted member · Firebase</small></div><button class="btn small" data-member="'+callAction+'" '+(callBusy?'disabled':'')+'>'+callLabel+'</button></div><div id="memberCallStatus" class="hint" role="status">'+esc(callText)+'</div><div id="memberMessages" class="chatmessages" style="height:300px;min-height:200px;border:1px solid var(--line);border-radius:12px;margin:12px 0">'+(items||'<div class="chatwelcome">Start a conversation with '+esc(other.handle||'this member')+'.</div>')+'</div><form id="memberMessageForm" class="composer" style="padding:0;border:0"><textarea id="memberMessageInput" maxlength="3000" placeholder="Write a message…" required></textarea><button class="btn primary" type="submit">Send</button></form></div>';
+}
+function callHud(other){
+  const elapsed=callStartedAt?Math.floor((Date.now()-callStartedAt)/1000):0;
+  const duration=String(Math.floor(elapsed/60)).padStart(2,'0')+':'+String(elapsed%60).padStart(2,'0');
+  const state=activeCallStatus==='active'?'Connected':activeCallStatus==='ringing'?'Calling…':'Connecting…';
+  return '<section class="sfn-call-hud" aria-label="Voice call controls"><div class="sfn-call-head"><span class="sfn-live-dot"></span><span>'+state+'</span><time id="sfnCallTimer">'+duration+'</time><span class="tag">SECURE VOICE</span></div><div class="sfn-call-person"><div class="sfn-call-avatar" aria-hidden="true">'+esc((other.handle||'M').slice(0,2).toUpperCase())+'</div><h2>'+esc(other.handle||'Member')+'</h2><p>Scott.F.N voice call</p></div><div class="sfn-call-wave" aria-hidden="true">'+Array.from({length:30},(_,i)=>'<i style="--bar:'+((i*7)%18+8)+'px;--delay:'+(-i*45)+'ms"></i>').join('')+'</div><div class="sfn-call-controls"><button type="button" class="sfn-call-control '+(callMuted?'selected':'')+'" data-call-control="mute" aria-pressed="'+callMuted+'"><b>◖</b><span>'+(callMuted?'Unmute':'Mute')+'</span></button><button type="button" class="sfn-call-control '+(keypadOpen?'selected':'')+'" data-call-control="keypad" aria-pressed="'+keypadOpen+'"><b>▦</b><span>Keypad</span></button><button type="button" class="sfn-call-control '+(!speakerEnabled?'selected':'')+'" data-call-control="speaker" aria-pressed="'+speakerEnabled+'"><b>◖))</b><span>Speaker</span></button><button type="button" class="sfn-call-control sfn-call-end" data-call-control="hangup"><b>☎</b><span>End call</span></button></div>'+(keypadOpen?'<div class="sfn-call-keypad"><div id="sfnDtmfDisplay">'+esc(dtmfDigits||'Enter tone')+'</div>'+['1','2','3','4','5','6','7','8','9','*','0','#'].map(digit=>'<button type="button" data-dtmf="'+digit+'">'+digit+'</button>').join('')+'</div>':'')+'<p class="sfn-call-note">Call audio is end-to-end peer connected. Keep this screen open while the call is active.</p></section>';
 }
 function signedInView(){
   return pageHeader()+statusBox()+'<div class="data-note">Messages are protected by Firebase Authentication and Firestore rules after setup. They are not end-to-end encrypted. Offline member data stays in this browser after sign-out, so use a trusted device. Calls may need a TURN relay for some networks.</div>'+profileHandle()+incomingCallCard()+'<div class="two-col" style="margin-top:14px"><div><div class="card"><div class="cardhead"><h2>Find a member</h2><span class="tag">EXACT USERNAME</span></div><p class="hint">Enter the complete generated username, for example SFN-A7KM-3P9X.</p><form id="memberLookupForm" class="button-row"><input style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b191d;color:var(--text)" id="memberLookup" maxlength="13" autocomplete="off" placeholder="SFN-ABCD-1234" required><button class="btn primary" type="submit">Find / request</button></form></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Your members</h2><span class="tag">'+relationships.filter(rel=>rel.status==='accepted').length+' CONNECTED</span></div><div class="inventory-list">'+relationshipList()+'</div></div></div><div>'+threadView()+'</div></div><p class="hint" style="margin-top:14px">Use verified Firebase accounts only. Never share reset codes, passwords, or one-time sign-in codes with another member.</p>';
@@ -368,7 +380,7 @@ function makePeer(callRef,role){
   peer=new RTCPeerConnection({iceServers:iceServers()});
   peer.ontrack=event=>{remoteStream=event.streams[0];const audio=document.querySelector('#memberRemoteAudio');if(audio)audio.srcObject=remoteStream;callStatus('Voice connected. Your call audio uses WebRTC.');};
   peer.onconnectionstatechange=()=>{
-    if(peer?.connectionState==='connected'){activeCallStatus='active';callStatus('Voice connected.');}
+    if(peer?.connectionState==='connected'){activeCallStatus='active';if(!callStartedAt){callStartedAt=Date.now();callTimer=setInterval(()=>{const timer=document.querySelector('#sfnCallTimer');if(timer&&callStartedAt){const seconds=Math.floor((Date.now()-callStartedAt)/1000);timer.textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0')}},1000)}callStatus('Voice connected.');appBridge.render();}
     else if(peer?.connectionState==='failed')callStatus('Call connection failed. A TURN relay may be needed on this network.');
     else if(peer?.connectionState==='disconnected')callStatus('Call network disconnected. Trying to reconnect…');
   };
@@ -472,6 +484,7 @@ async function endCall(){
 }
 async function closeCall(updateStatus){
   clearTimeout(callTimeout);callTimeout=null;
+  clearInterval(callTimer);callTimer=null;callStartedAt=0;keypadOpen=false;callMuted=false;speakerEnabled=true;dtmfDigits='';
   if(updateStatus&&activeCallRef)try{await sdk.updateDoc(activeCallRef,{status:'ended'});}catch{}
   unsubCallDoc?.();unsubCallDoc=null;unsubRemoteCandidates?.();unsubRemoteCandidates=null;
   if(peer){peer.ontrack=null;peer.onicecandidate=null;peer.close();peer=null;}
@@ -524,6 +537,9 @@ panel?.addEventListener('submit',event=>{
   else if(event.target.id==='memberMessageForm')void sendMemberMessage(event);
 });
 panel?.addEventListener('click',event=>{
+  const callControl=event.target.closest('[data-call-control]');
+  if(callControl){const action=callControl.dataset.callControl;if(action==='hangup'){void endCall();return}if(action==='mute'){callMuted=!callMuted;microphone?.getAudioTracks().forEach(track=>track.enabled=!callMuted);appBridge.render();return}if(action==='speaker'){speakerEnabled=!speakerEnabled;const audio=document.querySelector('#memberRemoteAudio');if(audio)audio.volume=speakerEnabled?1:0;appBridge.render();return}if(action==='keypad'){keypadOpen=!keypadOpen;appBridge.render();return}}
+  const digit=event.target.closest('[data-dtmf]');if(digit){dtmfDigits=(dtmfDigits+digit.dataset.dtmf).slice(-24);const sender=peer?.getSenders().find(item=>item.track?.kind==='audio');if(sender?.dtmf?.canInsertDTMF)sender.dtmf.insertDTMF(digit.dataset.dtmf);const display=document.querySelector('#sfnDtmfDisplay');if(display)display.textContent=dtmfDigits;return}
   const button=event.target.closest('[data-member]');
   if(button)void handleMemberAction(button);
 });
@@ -543,6 +559,7 @@ if(!document.querySelector('#memberRemoteAudio')){
   remoteAudio.id='memberRemoteAudio';remoteAudio.autoplay=true;remoteAudio.playsInline=true;remoteAudio.style.display='none';
   document.body.append(remoteAudio);
 }
+const callStyle=document.createElement('style');callStyle.textContent='.sfn-call-hud{margin:12px 0;padding:18px;border:1px solid rgba(41,218,255,.48);border-radius:24px;background:radial-gradient(ellipse at 50% 0,rgba(35,183,226,.18),transparent 58%),linear-gradient(145deg,#0b1d29,#071218 72%);box-shadow:0 0 28px rgba(27,204,237,.13),inset 0 1px rgba(255,255,255,.08);color:#e9fbff}.sfn-call-head{display:flex;align-items:center;gap:8px;font:12px var(--mono);color:#9eeeff}.sfn-call-head time{margin-left:auto;color:#f3fcff;font-size:14px}.sfn-live-dot{width:8px;height:8px;border-radius:50%;background:#38f4b2;box-shadow:0 0 12px #38f4b2;animation:sfnCallPulse 1.5s infinite}.sfn-call-person{text-align:center;padding:18px 0 0}.sfn-call-avatar{display:grid;place-items:center;width:76px;height:76px;margin:auto;border-radius:50%;background:linear-gradient(145deg,#146c7b,#111e39);border:2px solid #35dafa;box-shadow:0 0 25px #18c9ec44;font-size:25px;font-weight:700}.sfn-call-person h2{margin:10px 0 2px;font-size:22px}.sfn-call-person p,.sfn-call-note{margin:0;color:#93aeb7;font-size:12px}.sfn-call-wave{height:48px;display:flex;align-items:center;justify-content:center;gap:3px;margin:6px auto 16px;max-width:340px;overflow:hidden}.sfn-call-wave i{height:var(--bar);width:3px;border-radius:8px;background:linear-gradient(#a9f5ff,#30dafa 55%,#846fff);animation:sfnCallWave 950ms ease-in-out var(--delay) infinite alternate;opacity:.8}.sfn-call-controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.sfn-call-control{min-height:68px;border:1px solid #52737c;border-radius:16px;background:#10242d;color:#d7e8ed;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer}.sfn-call-control b{font-size:19px}.sfn-call-control span{font-size:11px}.sfn-call-control.selected{border-color:#37dafa;color:#9df2ff;background:#123a47}.sfn-call-control.sfn-call-end{background:linear-gradient(145deg,#ec5d6c,#bd263d);border-color:#ff8390;color:white}.sfn-call-note{text-align:center;margin-top:14px}.sfn-call-keypad{margin:14px auto 0;max-width:260px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.sfn-call-keypad>div{grid-column:1/-1;text-align:center;padding:10px;border:1px solid #33545f;border-radius:10px;color:#9df2ff;font:13px var(--mono)}.sfn-call-keypad button{min-height:42px;border:1px solid #33545f;border-radius:12px;background:#0d202a;color:#f4fcff;font-size:16px}@keyframes sfnCallPulse{50%{opacity:.35;transform:scale(.8)}}@keyframes sfnCallWave{to{transform:scaleY(.28);opacity:.45}}@media(max-width:380px){.sfn-call-hud{padding:13px}.sfn-call-controls{gap:5px}.sfn-call-control{min-height:62px}.sfn-call-control span{font-size:10px}}';document.head.append(callStyle);
 if(configured&&appBridge.isUnlocked?.()&&appBridge.getState().view==='members')void startFirebase();
 window.addEventListener('online',()=>{syncOfflineNotice();const view=appBridge.getState().view;if(configured&&appBridge.isUnlocked?.()&&(view==='members'||view==='communications')&&!firebaseStarted)void startFirebase();});
 window.addEventListener('offline',syncOfflineNotice);
