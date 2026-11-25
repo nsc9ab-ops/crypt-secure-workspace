@@ -41,6 +41,7 @@ let incomingCall = null;
 let firebaseStarted = false;
 
 appBridge.views.members = 'Members & calls';
+appBridge.views.communications = 'SMS & calls';
 
 function pageHeader(){
   return '<div class="pagehead"><div><div class="eyebrow">SCOTT.F.N NETWORK</div><h1>Members & calls</h1><p>Find members by their generated Scott.F.N username, then message or call after they accept your request.</p></div></div>';
@@ -122,11 +123,13 @@ function threadView(){
 function signedInView(){
   return pageHeader()+statusBox()+'<div class="data-note">Messages are protected by Firebase Authentication and Firestore rules after setup. They are not end-to-end encrypted. Calls may need a TURN relay for some networks.</div>'+profileHandle()+incomingCallCard()+'<div class="two-col" style="margin-top:14px"><div><div class="card"><div class="cardhead"><h2>Find a member</h2><span class="tag">EXACT USERNAME</span></div><p class="hint">Enter the complete generated username, for example SFN-A7KM-3P9X.</p><form id="memberLookupForm" class="button-row"><input style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b191d;color:var(--text)" id="memberLookup" maxlength="13" autocomplete="off" placeholder="SFN-ABCD-1234" required><button class="btn primary" type="submit">Find / request</button></form></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Your members</h2><span class="tag">'+relationships.filter(rel=>rel.status==='accepted').length+' CONNECTED</span></div><div class="inventory-list">'+relationshipList()+'</div></div></div><div>'+threadView()+'</div></div><p class="hint" style="margin-top:14px">Use verified Firebase accounts only. Never share reset codes, passwords, or one-time sign-in codes with another member.</p>';
 }
+function communicationsView(){const accepted=relationships.filter(x=>x.status==='accepted'),pending=relationships.filter(x=>x.status==='pending'),active=activeRelationshipId&&relationships.find(x=>x.id===activeRelationshipId);return pageHeader().replace('Members & calls','SMS & calls')+'<div class="welcome"><div><div class="eyebrow">SCOTT.F.N COMMUNICATIONS</div><h2>Your private communication room</h2><p>Text verified friends by SMS-style messages and start secure voice calls after a connection is accepted.</p></div><div class="button-row"><button class="btn primary" data-communication="add-friend">＋ Add friend</button><button class="btn" data-communication="open-members">Manage members</button></div></div><div class="grid stats"><div class="card"><div class="statlabel">Connected friends</div><div class="statnum">'+accepted.length+'</div><div class="statfoot">ready for messages and calls</div></div><div class="card"><div class="statlabel">Requests</div><div class="statnum">'+pending.length+'</div><div class="statfoot">waiting for action</div></div><div class="card"><div class="statlabel">Messages</div><div class="statnum">'+messages.length+'</div><div class="statfoot">in the active thread</div></div><div class="card"><div class="statlabel">Call status</div><div class="statnum" style="font-size:18px">'+(activeCallRef?'ACTIVE':'READY')+'</div><div class="statfoot">microphone starts only after Call</div></div></div><div class="two-col"><div class="card"><div class="cardhead"><h2>SMS conversations</h2><span class="tag">FIREBASE THREADS</span></div>'+(accepted.length?accepted.map(rel=>{const uid=rel.members.find(x=>x!==currentUser.uid),profile=profileByUid.get(uid)||{handle:'Member'};return '<div class="eventrow"><span class="staticon">◌</span><div class="rowmain"><strong>'+esc(profile.handle)+'</strong><small>Verified connection · private thread</small></div><button class="btn small" data-communication="open-thread" data-rel="'+esc(rel.id)+'">Open SMS</button></div>'}).join(''):'<div class="empty">No accepted friends yet. Add a friend using their generated username.</div>')+'</div><div class="card"><div class="cardhead"><h2>Calls</h2><span class="tag">WEBRTC</span></div><p class="hint">Calls use your microphone only after you choose Call. A TURN relay may be needed on some networks.</p>'+(accepted.length?accepted.map(rel=>{const uid=rel.members.find(x=>x!==currentUser.uid),profile=profileByUid.get(uid)||{handle:'Member'};return '<div class="eventrow"><span class="staticon">☎</span><div class="rowmain"><strong>'+esc(profile.handle)+'</strong><small>Voice call available</small></div><button class="btn small primary" data-communication="call" data-rel="'+esc(rel.id)+'">Call</button></div>'}).join(''):'<div class="empty">Connect with a friend before starting a call.</div>')+'</div></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Communication safety</h2><span class="tag">PRIVATE BY DEFAULT</span></div><p class="hint">Only accepted members can exchange messages or call. Never share passwords, recovery codes, or SMS verification codes.</p></div>'}
 function renderMembers(){
   if(!panel)return;
   document.querySelector('#crumbTitle').textContent='Members & calls';
   if(!configured){panel.innerHTML=configView();return;}
   if(!currentUser){panel.innerHTML=authView();return;}
+  if(appBridge.getState().view==='communications'){panel.innerHTML=communicationsView();return;}
   if(currentUser.email&&!currentUser.emailVerified){panel.innerHTML=pageHeader()+'<div class="card"><div class="cardhead"><h2>Verify your email</h2><span class="tag warn">ACTION NEEDED</span></div>'+statusBox('We sent a verification link to '+currentUser.email+'. Open it, then return here and check verification status.')+'<div class="button-row"><button class="btn primary" data-member="refresh-email">I verified my email</button><button class="btn" data-member="resend-verification">Resend verification email</button><button class="btn subtle" data-member="sign-out">Sign out</button></div></div>';return;}
   panel.innerHTML=signedInView();
   const remoteAudio=document.querySelector('#memberRemoteAudio');
@@ -224,6 +227,7 @@ async function loadVerifiedUser(user){
     memberStatus='Signed in as '+memberProfile.handle+'.';
     await loadRelationships(user);
     listenIncomingCalls(user);
+    if(appBridge.getState().view==='members')appBridge.navigate('communications');
     appBridge.render();
   }catch(error){setStatus(friendlyError(error),true);appBridge.render();}
 }
@@ -514,7 +518,8 @@ panel?.addEventListener('click',event=>{
   const button=event.target.closest('[data-member]');
   if(button)void handleMemberAction(button);
 });
-window.addEventListener('sfn:render',()=>{if(appBridge.getState().view==='members'){renderMembers();if(configured&&appBridge.isUnlocked?.()&&!firebaseStarted)void startFirebase();}});
+panel?.addEventListener('click',event=>{const button=event.target.closest('[data-communication]');if(!button)return;const action=button.dataset.communication;if(action==='add-friend'||action==='open-members'){appBridge.navigate('members');setTimeout(()=>document.querySelector('#memberLookup')?.focus(),0);return}if(action==='open-thread'){listenMessages(button.dataset.rel);appBridge.navigate('members');return}if(action==='call'){listenMessages(button.dataset.rel);appBridge.navigate('members');setTimeout(()=>startVoiceCall(),0)}});
+window.addEventListener('sfn:render',()=>{const view=appBridge.getState().view;if(view==='members'||view==='communications'){renderMembers();if(configured&&appBridge.isUnlocked?.()&&!firebaseStarted)void startFirebase();}});
 window.addEventListener('sfn:unlocked',()=>{
   if(appBridge.getState().view==='members')void startFirebase();
   if(firebaseAuth?.currentUser)void loadVerifiedUser(firebaseAuth.currentUser);
