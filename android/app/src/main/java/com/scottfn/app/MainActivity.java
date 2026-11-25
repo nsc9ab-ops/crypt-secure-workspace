@@ -1,7 +1,6 @@
 package com.scottfn.app;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
@@ -22,6 +21,7 @@ import android.util.Base64;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
 import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
@@ -32,7 +32,7 @@ import javax.crypto.spec.GCMParameterSpec;
 
 import java.util.ArrayList;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends FragmentActivity {
     private static final int REQUEST_MEDIA = 41;
     private static final int REQUEST_GEO = 42;
     private static final int REQUEST_FILE = 43;
