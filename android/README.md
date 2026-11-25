@@ -1,6 +1,6 @@
 # Scott.F.N Android wrapper
 
-This small Android app uses the supplied Scott.F.N emblem as its launcher icon and opens the hosted Scott.F.N site in Android WebView. It needs internet access. Browser storage belongs to this app installation and stays separate from Chrome and other phones.
+This small Android app uses the supplied Scott.F.N emblem as its launcher icon and opens the hosted Scott.F.N site in Android WebView. It needs internet for the first load, app updates, new sign-ins, live member sync, phone verification, and calls. After its first successful load, the cached app shell and local sections can reopen offline. Browser storage belongs to this app installation and stays separate from Chrome and other phones.
 
 Camera, microphone, location, and file access are requested only after the corresponding site feature is used. Android permission prompts must be accepted as well as the website prompt. WhatsApp opens outside the app. Firebase member chat and calls require the Firebase project setup described in the main README.
 

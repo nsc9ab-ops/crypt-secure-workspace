@@ -1,17 +1,64 @@
-const CACHE_NAME = 'sfn-shell-v12';
-const APP_FILES = ['./', './index.html', './manifest.webmanifest', './firebase-config.js', './members.js', './app-icon.svg', './app-icon-64.png', './app-icon-180.png', './app-icon-192.png', './app-icon-512.png'];
+const CACHE_NAME = 'sfn-shell-v13';
+const APP_FILES = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './firebase-config.js',
+  './members.js',
+  './app-icon.svg',
+  './app-icon-64.png',
+  './app-icon-180.png',
+  './app-icon-192.png',
+  './app-icon-512.png',
+  './assets/login-hero.webp',
+  './assets/scott-fn-app-icon-1024.png',
+  './vendor/firebase-13.4.0/firebase-sdk.js'
+];
+
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
-  self.skipWaiting();
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.addAll(APP_FILES);
+    await self.skipWaiting();
+  })());
 });
+
 self.addEventListener('activate', event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))));
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys
+      .filter(key => key.startsWith('sfn-shell-') && key !== CACHE_NAME)
+      .map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
+
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-    if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone()));
-    return response;
-  }).catch(() => caches.match('./index.html'))));
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) return;
+
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+
+    if (request.mode === 'navigate') {
+      try {
+        const response = await fetch(request);
+        if (response.ok) await cache.put(request, response.clone());
+        return response;
+      } catch {
+        return await cache.match(request) || await cache.match('./index.html') || Response.error();
+      }
+    }
+
+    const cached = await cache.match(request);
+    if (cached) return cached;
+
+    try {
+      const response = await fetch(request);
+      if (response.ok) await cache.put(request, response.clone());
+      return response;
+    } catch {
+      return Response.error();
+    }
+  })());
 });
