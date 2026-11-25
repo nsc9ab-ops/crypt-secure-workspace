@@ -225,6 +225,10 @@ async function startFirebase(){
     ]);
     sdk={...authSdk,...firestoreSdk,initializeApp:appSdk.initializeApp};
     const firebaseApp=sdk.initializeApp(CONFIG);
+    try{
+      const analyticsSdk=await import(root+'firebase-analytics.js');
+      if(await analyticsSdk.isSupported())analyticsSdk.getAnalytics(firebaseApp);
+    }catch{}
     firebaseAuth=sdk.getAuth(firebaseApp);db=sdk.getFirestore(firebaseApp);
     await sdk.setPersistence(firebaseAuth,sdk.browserLocalPersistence);
     unsubAuth=sdk.onAuthStateChanged(firebaseAuth,user=>{
