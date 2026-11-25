@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sfn-shell-v9';
+const CACHE_NAME = 'sfn-shell-v10';
 const APP_FILES = ['./', './index.html', './manifest.webmanifest', './firebase-config.js', './members.js', './app-icon.svg', './app-icon-64.png', './app-icon-180.png', './app-icon-192.png', './app-icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
