@@ -37,6 +37,8 @@ let microphone = null;
 let remoteStream = null;
 let callTimeout = null;
 let incomingCall = null;
+let incomingCallToneId = '';
+let initialMessageSnapshot = true;
 let firebaseStarted = false;
 
 appBridge.views.members = 'Members & calls';
@@ -203,10 +205,12 @@ async function loadRelationships(user){
   },error=>setStatus(friendlyError(error),true));
 }
 function listenMessages(relationshipId){
-  unsubMessages?.();unsubMessages=null;messages=[];activeRelationshipId=relationshipId;
+  unsubMessages?.();unsubMessages=null;messages=[];activeRelationshipId=relationshipId;initialMessageSnapshot=true;
   const q=sdk.query(sdk.collection(db,'relationships',relationshipId,'messages'),sdk.orderBy('createdAt','desc'),sdk.limit(100));
   unsubMessages=sdk.onSnapshot(q,snapshot=>{
-    messages=snapshot.docs.map(doc=>({id:doc.id,...doc.data()})).reverse();
+    const next=snapshot.docs.map(doc=>({id:doc.id,...doc.data()})).reverse();
+    if(!initialMessageSnapshot&&next.some(message=>message.senderUid!==currentUser?.uid&&!messages.some(old=>old.id===message.id)))window.sfnPlayAlert?.('message');
+    initialMessageSnapshot=false;messages=next;
     const messageBox=document.querySelector('#memberMessages');
     if(messageBox){const items=messages.map(message=>'<div class="bubble '+(message.senderUid===currentUser?.uid?'mine':'')+'">'+esc(message.text)+'<time>'+esc(message.createdAt?.toDate?.()?.toLocaleString()||'Sending…')+'</time></div>').join('');messageBox.innerHTML=items||'<div class="chatwelcome">Start a conversation with this member.</div>';messageBox.scrollTop=messageBox.scrollHeight;}
   },error=>setStatus(friendlyError(error),true));
@@ -219,7 +223,7 @@ function listenIncomingCalls(user){
       const createdAt=item.data().createdAt?.toDate?.()?.getTime();
       return item.data().calleeUid===user.uid&&item.id!==activeCallRef?.id&&createdAt&&Date.now()-createdAt<120000;
     })||null;
-    if(hit?.id!==incomingCall?.id){incomingCall=hit;appBridge.render();}
+    if(hit?.id!==incomingCall?.id){incomingCall=hit;if(hit){incomingCallToneId=hit.id;window.sfnPlayAlert?.('call')}else{incomingCallToneId='';window.sfnStopAlert?.('call')}appBridge.render();}
   },error=>setStatus(friendlyError(error),true));
 }
 async function loadVerifiedUser(user){
@@ -438,7 +442,7 @@ async function acceptVoiceCall(callId){
     appBridge.render();
     microphone=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
     if(!appBridge.isUnlocked?.()||!currentUser)throw Error('Unlock Scott.F.N and sign in again before answering.');
-    activeCallRef=incoming.ref;activeCallRole='callee';activeCallStatus='active';callDocumentReady=true;incomingCall=null;
+    window.sfnStopAlert?.('call');incomingCallToneId='';activeCallRef=incoming.ref;activeCallRole='callee';activeCallStatus='active';callDocumentReady=true;incomingCall=null;
     const connection=makePeer(activeCallRef,'callee');
     for(const track of microphone.getTracks())connection.addTrack(track,microphone);
     const callData=incoming.data;
@@ -455,7 +459,7 @@ async function acceptVoiceCall(callId){
 async function declineVoiceCall(callId){
   const incoming=callId===incomingCall?.id?incomingCall:null;
   if(!incoming)return;
-  try{await sdk.updateDoc(incoming.ref,{status:'declined'});incomingCall=null;setStatus('Call declined.');appBridge.render();}
+  try{await sdk.updateDoc(incoming.ref,{status:'declined'});window.sfnStopAlert?.('call');incomingCallToneId='';incomingCall=null;setStatus('Call declined.');appBridge.render();}
   catch(error){setStatus(friendlyError(error),true);}
 }
 async function endCall(){
