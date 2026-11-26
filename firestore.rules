@@ -24,7 +24,7 @@ service cloud.firestore {
       allow get: if verifiedMember();
       allow list: if false;
       allow create: if verifiedMember()
-        && handle.matches('^SFN-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+        && handle.matches('^SFN-[A-Z0-9]{4}-([A-Z0-9]{4}|[A-F0-9]{5,512}[A-F0-9]{0,512})$')
         && request.resource.data.keys().hasOnly(['uid', 'handle', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.handle == handle
@@ -39,16 +39,16 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['uid', 'handle', 'displayName', 'createdAt'])
         && request.resource.data.uid == uid
-        && request.resource.data.handle.matches('^SFN-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+        && request.resource.data.handle.matches('^SFN-[A-Z0-9]{4}-([A-Z0-9]{4}|[A-F0-9]{5,512}[A-F0-9]{0,512})$')
         && request.resource.data.displayName == request.resource.data.handle
         && request.resource.data.createdAt == request.time
         && getAfter(/databases/$(database)/documents/handles/$(request.resource.data.handle)).data.uid == uid;
       allow update: if verifiedMember()
         && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['handle', 'displayName'])
-        && request.resource.data.handle.matches('^SFN-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+        && request.resource.data.handle.matches('^SFN-[A-Z0-9]{4}-([A-Z0-9]{4}|[A-F0-9]{5,512}[A-F0-9]{0,512})$')
         && request.resource.data.displayName == request.resource.data.handle
-        && request.resource.data.displayName.size() <= 48
+        && request.resource.data.displayName.size() <= 1033
         && getAfter(/databases/$(database)/documents/handles/$(request.resource.data.handle)).data.uid == uid;
       allow delete: if false;
     }

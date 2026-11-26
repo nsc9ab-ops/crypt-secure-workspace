@@ -7,6 +7,7 @@
 
   views.pdfscan = 'PDF Scan';
   views.ringtones = 'Ringtones';
+  views.arcade = 'Cyber Arcade';
 
   const nav = document.querySelector('#sfnBottomNav');
   const pdfNav = nav?.querySelector('[data-page="messages"]');
@@ -25,10 +26,33 @@
     rail.insertBefore(button, rail.querySelector('[data-view="appearance"]') || null);
   }
 
+  if (rail && !rail.querySelector('[data-view="arcade"]')) {
+    const button = document.createElement('button');
+    button.className = 'navbtn'; button.dataset.action = 'navigate'; button.dataset.view = 'arcade';
+    button.title = 'Cyber Arcade'; button.setAttribute('aria-label', 'Cyber Arcade');
+    button.innerHTML = '<span class="glyph">✦</span>';
+    rail.insertBefore(button, rail.querySelector('[data-view="appearance"]') || null);
+  }
+
+  function installArcadeBottomNav() {
+    if (!nav || nav.querySelector('[data-page="arcade"]')) return;
+    const button = document.createElement('button');
+    button.className = 'sfn-nav-item'; button.dataset.page = 'arcade'; button.type = 'button';
+    button.setAttribute('aria-label', 'Cyber Arcade');
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12a4 4 0 0 1 3.8 5l-1 3a2 2 0 0 1-3.2 1l-2.3-1.8H8.7L6.4 17a2 2 0 0 1-3.2-1l-1-3A4 4 0 0 1 6 8Z"></path><path d="M7 11v4M5 13h4M16 12h.01M19 14h.01"></path></svg><span>Arcade</span>';
+    const cycle = nav.querySelector('[data-page="cycle"]');
+    (cycle || nav.querySelector('[data-page="calendar"]'))?.after(button);
+    button.addEventListener('click', () => window.dispatchEvent(new CustomEvent('sfn:navigate', {detail:{page:'arcade'}})));
+  }
+  installArcadeBottomNav();
+
   function addHomeShortcut() {
     const grid = document.querySelector('.home-quickgrid');
     if (grid && !grid.querySelector('[data-feature="ringtones"]')) {
       grid.insertAdjacentHTML('beforeend', '<button class="quick home-quick" data-feature="ringtones"><span class="quickglyph">♫</span><span><strong>Ringtones</strong><small>Preview and save ten original tones</small></span></button>');
+    }
+    if (grid && !grid.querySelector('[data-feature="arcade"]')) {
+      grid.insertAdjacentHTML('beforeend', '<button class="quick home-quick" data-feature="arcade"><span class="quickglyph">✦</span><span><strong>Cyber Arcade</strong><small>Play Cyber Serpent and Void Interceptor</small></span></button>');
     }
   }
 
@@ -37,7 +61,9 @@
     oldRender();
     if (state.view === 'pdfscan') { document.querySelector('#panel').innerHTML = pdfScanView(); renderPageList(); }
     if (state.view === 'ringtones') document.querySelector('#panel').innerHTML = ringtoneView();
+    if (state.view === 'arcade') document.querySelector('#panel').innerHTML = arcadeView();
     if (state.view === 'home') addHomeShortcut();
+    installArcadeBottomNav();
     updateBottomNav();
   };
 
@@ -57,6 +83,22 @@
   window.addEventListener('click', event => {
     const homeLink = event.target.closest('[data-feature="ringtones"]');
     if (homeLink) navigate('ringtones');
+    const arcadeLink = event.target.closest('[data-feature="arcade"]');
+    if (arcadeLink) navigate('arcade');
+  });
+
+  const arcadeScoreKeys = ['neon_nexus_snake_highscore', 'neon_nexus_space_highscore'];
+  window.addEventListener('message', event => {
+    const frame = document.querySelector('#sfnArcadeFrame');
+    if (!frame || event.source !== frame.contentWindow || event.origin !== 'null' || !event.data || typeof event.data !== 'object') return;
+    if (event.data.type === 'sfn-arcade-ready') {
+      const scores = {};
+      for (const key of arcadeScoreKeys) scores[key] = Math.max(0, Math.min(1000000000, Number(localStorage.getItem(key)) || 0));
+      frame.contentWindow.postMessage({type:'sfn-arcade-scores', scores}, '*');
+    } else if (event.data.type === 'sfn-arcade-score' && arcadeScoreKeys.includes(event.data.key)) {
+      const score = Number(event.data.value);
+      if (Number.isSafeInteger(score) && score >= 0 && score <= 1000000000) localStorage.setItem(event.data.key, String(score));
+    }
   });
 
   function pdfScanView() {
@@ -77,6 +119,10 @@
     const options=items.map((item,i)=>'<option value="'+i+'">'+(item[0]==='ios'?'iPhone inspired · ':'Android inspired · ')+item[1]+'</option>').join('');
     const callChoice=localStorage.getItem('sfn_call_tone')||'0',messageChoice=localStorage.getItem('sfn_message_tone')||'5';
     return '<div class="pagehead"><div><div class="eyebrow">PERSONAL AUDIO</div><h1>Ringtone studio</h1><p>Choose separate sounds for incoming calls and new messages.</p></div></div><div class="card ringtone-settings"><div class="cardhead"><h2>App alert sounds</h2><span class="tag">LOCAL SETTINGS</span></div><p class="hint">Alerts play while Scott.F.N is open. Call sound repeats until you answer or decline.</p><div class="ringtone-picks"><label class="field"><span>Incoming call sound</span><select data-tone-setting="call">'+options+'</select></label><button class="btn" data-tone-preview-setting="call">▶ Preview call</button><label class="field"><span>New message sound</span><select data-tone-setting="message">'+options+'</select></label><button class="btn" data-tone-preview-setting="message">▶ Preview message</button></div></div><div class="data-note">These are original Scott.F.N compositions inspired by broad mobile sound styles; they do not copy built-in Apple or Android ringtones.</div><h2 class="ringtone-group-title">iPhone inspired <span>5 tones</span></h2><div class="ringtone-list">'+items.slice(0,5).map(card).join('')+'</div><h2 class="ringtone-group-title">Android inspired <span>5 tones</span></h2><div class="ringtone-list">'+items.slice(5).map((item,i)=>card(item,i+5)).join('')+'</div><p class="hint">Save a WAV file to your phone, then choose it in your device’s sound or ringtone settings.</p>';
+  }
+
+  function arcadeView() {
+    return '<div class="pagehead"><div><div class="eyebrow">LOCAL PLAY · TWO GAME MODES</div><h1>Cyber Arcade</h1><p>Launch Cyber Serpent or Void Interceptor. Scores stay on this device, and the isolated game frame cannot access your workspace data.</p></div></div><section class="card sfn-arcade-card"><div class="cardhead"><h2>NEON NEXUS · Twin-System</h2><span class="tag">OFFLINE READY</span></div><iframe id="sfnArcadeFrame" class="sfn-arcade-frame" title="Cyber Arcade: Cyber Serpent and Void Interceptor" src="./games/cyber-arcade-twin-system.html" sandbox="allow-scripts" allow="autoplay; gamepad" loading="lazy"></iframe></section>';
   }
 
   function stopScanner() {
@@ -221,6 +267,9 @@
   const extraStyle=document.createElement('style');
   extraStyle.textContent='.pdfscan-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(280px,.9fr);gap:14px}.pdfscan-video-wrap{position:relative;min-height:300px;display:grid;place-items:center;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#02090a}.pdfscan-video-wrap video{display:none;width:100%;max-height:65vh;object-fit:contain}.pdfscan-placeholder{padding:35px 20px;text-align:center;color:var(--muted);font-size:13px}.pdfscan-controls{margin-top:12px}.pdfscan-upload{position:relative;overflow:hidden}.pdfscan-upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}.pdfscan-pages{display:grid;gap:8px;max-height:55vh;overflow:auto}.pdfscan-page{display:flex;align-items:center;gap:10px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:11px;background:var(--panel)}.pdfscan-page img{width:54px;height:68px;object-fit:cover;border-radius:5px;background:white}.pdfscan-page-info{min-width:0;flex:1}.pdfscan-page-info strong,.pdfscan-page-info small{display:block}.pdfscan-page-info small{margin-top:4px;color:var(--muted);font-size:11px}.pdfscan-page-actions{display:flex;gap:4px}.pdfscan-save{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.ringtone-picks{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end}.ringtone-picks select{width:100%;min-height:44px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px}.ringtone-group-title{display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px;font-size:18px}.ringtone-group-title span{font:11px var(--mono);color:var(--muted)}.ringtone-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ringtone-card{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:13px;border:1px solid var(--line);border-radius:14px;background:var(--panel);min-width:0}.ringtone-icon{width:38px;height:38px;border:1px solid #397660;border-radius:12px;display:grid;place-items:center;color:var(--mint);font-size:18px}.ringtone-copy h3{margin:7px 0 3px;font-size:15px}.ringtone-copy p{margin:0;color:var(--muted);font-size:11px}.ringtone-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}.pdfscan-page-actions .topicon{width:32px;height:32px}.sfn-nav-item[data-page="pdfscan"]{color:var(--mint)}@media(max-width:760px){.pdfscan-layout{grid-template-columns:1fr}.pdfscan-video-wrap{min-height:230px}.ringtone-list{grid-template-columns:1fr}.ringtone-picks{grid-template-columns:1fr}.ringtone-card{grid-template-columns:34px minmax(0,1fr)}.ringtone-icon{width:34px;height:34px}.ringtone-actions{justify-content:stretch}.ringtone-actions .btn{flex:1}.pdfscan-page-actions{gap:2px}.pdfscan-page-actions .topicon{width:30px;height:30px}}@media(max-width:380px){.pdfscan-controls .btn,.pdfscan-upload{font-size:11px;padding:8px}.pdfscan-page img{width:44px;height:58px}.pdfscan-page-actions .topicon{width:27px;height:28px}}';
   document.head.append(extraStyle);
+  const arcadeStyle = document.createElement('style');
+  arcadeStyle.textContent = '.sfn-arcade-card{overflow:hidden;padding:0}.sfn-arcade-card>.cardhead{padding:14px 16px}.sfn-arcade-frame{display:block;width:100%;height:clamp(360px,calc(100dvh - 245px),880px);border:0;background:#05070d;border-radius:0 0 14px 14px}.sfn-nav-item[data-page="arcade"]{color:#8be9ff}@media(max-width:760px){.sfn-arcade-frame{height:clamp(360px,calc(100dvh - 215px),820px)}}';
+  document.head.append(arcadeStyle);
 })();
 
 window.addEventListener('sfn:render', () => {

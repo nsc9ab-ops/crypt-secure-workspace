@@ -7,7 +7,7 @@ const configured = Boolean(CONFIG.apiKey && CONFIG.authDomain && CONFIG.projectI
 const appBridge = window.SFNApp;
 const panel = document.querySelector('#panel');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const handleFormat = /^SFN-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const handleFormat = /^SFN-[A-Z0-9]{4}-([A-Z0-9]{4}|[A-F0-9]{5,1024})$/;
 const handleCallsigns = ['NOVA','VEGA','LYRA','ALTA','AURA','APOL','CYGN','DRAC','ORBI','ATOM','QUAS','NEON','LUMA','ONYX','ZETA','VELA','MIRA','ARGO','ARIA','ECHO','AXIS','OPAL','ORCA','SAGE','RUNE','HELI','SOLA','NEXU','PULS','KILO','HEXA','APEX'];
 let sdk = null;
 let firebaseAuth = null;
@@ -103,11 +103,11 @@ function authView(){
   return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>'+(authMethod==='email'?'Email and password':'Sign in with your phone')+'</h2><span class="tag">'+(authMethod==='email'?'EMAIL VERIFIED':'SMS VERIFIED')+'</span></div><p class="hint">'+(authMethod==='email'?'Use an email address and password. New accounts must verify the address before member features are enabled.':'Use your phone number in international format. Firebase will send a one-time SMS code, then Scott.F.N will generate your member username.')+'</p><div class="button-row" style="margin:10px 0"><button class="btn '+(authMethod==='phone'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="phone">Phone</button><button class="btn '+(authMethod==='email'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="email">Email & password</button></div>'+statusBox()+'<form id="memberAuthForm">'+form+'</form><div class="button-row" style="margin-top:12px">'+(phoneConfirmation?'<button class="btn subtle" type="button" data-member="phone-start-over">Use a different number</button>':'<button class="btn subtle" type="button" data-member="toggle-auth">'+(registering?'Already a member? Sign in':'Create a member account')+'</button>')+(authMethod==='email'&&!registering?'<button class="btn subtle" type="button" data-member="reset-password">Forgot password?</button>':'')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Verified accounts can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Never share your password or SMS code.</p><p class="hint">Offline member data is stored in this browser&#39;s persistent cache and may remain after sign-out. Use a trusted, private device.</p><p class="hint">Email and phone sign-ins may create separate accounts unless explicitly linked in Firebase.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
 }
 function profileHandle(){
-  const loading=memberProfileState==='loading',failed=memberProfileState==='error';
+  const loading=memberProfileState==='loading',failed=memberProfileState==='error',local=memberProfileState==='local';
   const title=memberProfile?esc(memberProfile.handle):loading?'Generating your unique ID…':failed?'Username unavailable':'Sign in to get your username';
-  const hint=memberProfile?'Share this unique code so trusted members can find you.':loading?'Reserving a unique Scott.F.N identity…':failed?'The account service could not load your profile. Check your connection, then retry.':'Sign in to create or view your member username.';
-  const action=memberProfile?'<button class="btn small" data-member="copy-handle">Copy ID</button>':failed&&currentUser?'<button class="btn small" type="button" data-member="retry-profile">Retry</button>':'<button class="btn small" type="button" disabled>Copy ID</button>';
-  return '<div class="card sfn-identity-card" style="margin-bottom:14px" aria-live="polite"><div class="sfn-identity-topline"><span>SCOTT.F.N · MEMBER ID</span><span class="sfn-identity-status"><i aria-hidden="true"></i>'+(memberProfile?'RESERVED':loading?'SYNCING':failed?'OFFLINE':'SECURE')+'</span></div><div class="cardhead"><div><div class="smalllabel">YOUR UNIQUE USERNAME</div><strong class="sfn-identity-handle">'+title+'</strong></div>'+action+'</div><div class="button-row"><span class="hint">'+hint+'</span>'+(memberProfile?'<button class="btn small subtle" data-member="sign-out">Sign out</button>':'')+'</div></div>';
+  const hint=memberProfile?(local?'Generated from your signed-in account on this device. It will become searchable after syncing online.':'Share this unique code so trusted members can find you.'):loading?'Creating your unique Scott.F.N identity…':failed?'The account service could not load your profile. Check your connection, then retry.':'Sign in to create or view your member username.';
+  const action=memberProfile?(local?'<button class="btn small" data-member="retry-profile">Sync now</button><button class="btn small" data-member="copy-handle">Copy ID</button>':'<button class="btn small" data-member="copy-handle">Copy ID</button>'):failed&&currentUser?'<button class="btn small" type="button" data-member="retry-profile">Retry</button>':'<button class="btn small" type="button" disabled>Copy ID</button>';
+  return '<div class="card sfn-identity-card" style="margin-bottom:14px" aria-live="polite"><div class="sfn-identity-topline"><span>SCOTT.F.N · MEMBER ID</span><span class="sfn-identity-status"><i aria-hidden="true"></i>'+(memberProfile?(local?'SYNC PENDING':'RESERVED'):loading?'SYNCING':failed?'OFFLINE':'SECURE')+'</span></div><div class="cardhead"><div><div class="smalllabel">YOUR UNIQUE USERNAME</div><strong class="sfn-identity-handle">'+title+'</strong></div>'+action+'</div><div class="button-row"><span class="hint">'+hint+'</span>'+(memberProfile?'<button class="btn small subtle" data-member="sign-out">Sign out</button>':'')+'</div></div>';
 }
 function statusLabel(rel){
   if(rel.status==='accepted')return 'Connected';
@@ -157,7 +157,7 @@ function callHud(other){
   return '<section class="sfn-call-hud" aria-label="Voice call controls"><div class="sfn-call-head"><span class="sfn-live-dot"></span><span>'+state+'</span><time id="sfnCallTimer">'+duration+'</time><span class="tag">SECURE VOICE</span></div><div class="sfn-call-person"><div class="sfn-call-avatar" aria-hidden="true">'+esc((other.handle||'M').slice(0,2).toUpperCase())+'</div><h2>'+esc(other.handle||'Member')+'</h2><p>Scott.F.N voice call · You: '+esc(memberProfile?.handle||'Member')+'</p></div><div class="sfn-call-wave" aria-hidden="true">'+Array.from({length:30},(_,i)=>'<i style="--bar:'+((i*7)%18+8)+'px;--delay:'+(-i*45)+'ms"></i>').join('')+'</div><div class="sfn-call-controls"><button type="button" class="sfn-call-control '+(callMuted?'selected':'')+'" data-call-control="mute" aria-pressed="'+callMuted+'"><b>◖</b><span>'+(callMuted?'Unmute':'Mute')+'</span></button><button type="button" class="sfn-call-control '+(keypadOpen?'selected':'')+'" data-call-control="keypad" aria-pressed="'+keypadOpen+'"><b>▦</b><span>Keypad</span></button><button type="button" class="sfn-call-control '+(!speakerEnabled?'selected':'')+'" data-call-control="speaker" aria-pressed="'+speakerEnabled+'"><b>◖))</b><span>Speaker</span></button><button type="button" class="sfn-call-control sfn-call-end" data-call-control="hangup"><b>☎</b><span>End call</span></button></div>'+(keypadOpen?'<div class="sfn-call-keypad"><div id="sfnDtmfDisplay">'+esc(dtmfDigits||'Enter tone')+'</div>'+['1','2','3','4','5','6','7','8','9','*','0','#'].map(digit=>'<button type="button" data-dtmf="'+digit+'">'+digit+'</button>').join('')+'</div>':'')+'<p class="sfn-call-note">Call audio is end-to-end peer connected. Keep this screen open while the call is active.</p></section>';
 }
 function signedInView(){
-  return pageHeader()+statusBox()+'<div class="data-note">Messages are protected by Firebase Authentication and Firestore rules after setup. They are not end-to-end encrypted. Offline member data stays in this browser after sign-out, so use a trusted device. Calls may need a TURN relay for some networks.</div>'+profileHandle()+incomingCallCard()+'<div class="two-col" style="margin-top:14px"><div><div class="card"><div class="cardhead"><h2>Find a member</h2><span class="tag">EXACT USERNAME</span></div><p class="hint">Enter the complete generated username, for example SFN-A7KM-3P9X.</p><form id="memberLookupForm" class="button-row"><input style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b191d;color:var(--text)" id="memberLookup" maxlength="13" autocomplete="off" placeholder="SFN-ABCD-1234" required><button class="btn primary" type="submit">Find / request</button></form></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Your members</h2><span class="tag">'+relationships.filter(rel=>rel.status==='accepted').length+' CONNECTED</span></div><div class="inventory-list">'+relationshipList()+'</div></div></div><div>'+threadView()+'</div></div><p class="hint" style="margin-top:14px">Use verified Firebase accounts only. Never share reset codes, passwords, or one-time sign-in codes with another member.</p>';
+  return pageHeader()+statusBox()+'<div class="data-note">Messages are protected by Firebase Authentication and Firestore rules after setup. They are not end-to-end encrypted. Offline member data stays in this browser after sign-out, so use a trusted device. Calls may need a TURN relay for some networks.</div>'+profileHandle()+incomingCallCard()+'<div class="two-col" style="margin-top:14px"><div><div class="card"><div class="cardhead"><h2>Find a member</h2><span class="tag">EXACT USERNAME</span></div><p class="hint">Enter the complete generated username, for example SFN-VEGA-7K3P.</p><form id="memberLookupForm" class="button-row"><input style="flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b191d;color:var(--text)" id="memberLookup" maxlength="1033" autocomplete="off" placeholder="SFN-VEGA-7K3P" required><button class="btn primary" type="submit">Find / request</button></form></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Your members</h2><span class="tag">'+relationships.filter(rel=>rel.status==='accepted').length+' CONNECTED</span></div><div class="inventory-list">'+relationshipList()+'</div></div></div><div>'+threadView()+'</div></div><p class="hint" style="margin-top:14px">Use verified Firebase accounts only. Never share reset codes, passwords, or one-time sign-in codes with another member.</p>';
 }
 function communicationsView(){const accepted=relationships.filter(x=>x.status==='accepted'),pending=relationships.filter(x=>x.status==='pending'),active=activeRelationshipId&&relationships.find(x=>x.id===activeRelationshipId);return pageHeader().replace('Members & calls','SMS & calls')+profileHandle()+'<div class="welcome"><div><div class="eyebrow">SCOTT.F.N COMMUNICATIONS</div><h2>Your private communication room</h2><p>Text verified friends by SMS-style messages and start secure voice calls after a connection is accepted.</p></div><div class="button-row"><button class="btn primary" data-communication="add-friend">＋ Add friend</button><button class="btn" data-communication="open-members">Manage members</button></div></div><div class="grid stats"><div class="card"><div class="statlabel">Connected friends</div><div class="statnum">'+accepted.length+'</div><div class="statfoot">ready for messages and calls</div></div><div class="card"><div class="statlabel">Requests</div><div class="statnum">'+pending.length+'</div><div class="statfoot">waiting for action</div></div><div class="card"><div class="statlabel">Messages</div><div class="statnum">'+messages.length+'</div><div class="statfoot">in the active thread</div></div><div class="card"><div class="statlabel">Call status</div><div class="statnum" style="font-size:18px">'+(activeCallRef?'ACTIVE':'READY')+'</div><div class="statfoot">microphone starts only after Call</div></div></div><div class="two-col"><div class="card"><div class="cardhead"><h2>SMS conversations</h2><span class="tag">FIREBASE THREADS</span></div>'+(accepted.length?accepted.map(rel=>{const uid=rel.members.find(x=>x!==currentUser.uid),profile=profileByUid.get(uid)||{handle:'Member'};return '<div class="eventrow"><span class="staticon">◌</span><div class="rowmain"><strong>'+esc(profile.handle)+'</strong><small>Verified connection · private thread</small></div><button class="btn small" data-communication="open-thread" data-rel="'+esc(rel.id)+'">Open SMS</button></div>'}).join(''):'<div class="empty">No accepted friends yet. Add a friend using their generated username.</div>')+'</div><div class="card"><div class="cardhead"><h2>Calls</h2><span class="tag">WEBRTC</span></div><p class="hint">Calls use your microphone only after you choose Call. A TURN relay may be needed on some networks.</p>'+(accepted.length?accepted.map(rel=>{const uid=rel.members.find(x=>x!==currentUser.uid),profile=profileByUid.get(uid)||{handle:'Member'};return '<div class="eventrow"><span class="staticon">☎</span><div class="rowmain"><strong>'+esc(profile.handle)+'</strong><small>Voice call available</small></div><button class="btn small primary" data-communication="call" data-rel="'+esc(rel.id)+'">Call</button></div>'}).join(''):'<div class="empty">Connect with a friend before starting a call.</div>')+'</div></div><div class="card" style="margin-top:14px"><div class="cardhead"><h2>Communication safety</h2><span class="tag">PRIVATE BY DEFAULT</span></div><p class="hint">Only accepted members can exchange messages or call. Never share passwords, recovery codes, or SMS verification codes.</p></div>'}
 function renderMembers(){
@@ -195,11 +195,13 @@ function clearMemberSession(){
   if(activeCallRef)void closeCall(true);
   currentUser=null;memberProfile=null;memberProfileState='idle';relationships=[];profileByUid=new Map();activeRelationshipId='';messages=[];incomingCall=null;
 }
-function generatedHandle(){
-  const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes=crypto.getRandomValues(new Uint8Array(5));
-  const callsign=handleCallsigns[bytes[0]&31];
-  const suffix=[...bytes.slice(1)].map(value=>alphabet[value&31]).join('');
+function generatedHandle(user){
+  const uid=String(user?.uid||'');
+  if(!uid.length)throw Error('A signed-in account is required to generate your username.');
+  let hash=2166136261;
+  for(let index=0;index<uid.length;index++)hash=Math.imul(hash^uid.charCodeAt(index),16777619);
+  const callsign=handleCallsigns[(hash>>>0)%handleCallsigns.length];
+  const suffix='F'+Array.from({length:uid.length},(_,index)=>uid.charCodeAt(index).toString(16).padStart(4,'0')).join('').toUpperCase();
   return 'SFN-'+callsign+'-'+suffix;
 }
 function cachedProfileKey(uid){return 'sfn_member_profile_'+uid;}
@@ -214,24 +216,20 @@ function cacheProfile(profile){
   try{localStorage.setItem(cachedProfileKey(profile.uid),JSON.stringify({uid:profile.uid,handle:profile.handle,displayName:profile.displayName||profile.handle}));}catch{}
 }
 async function ensureProfile(user){
+  const handle=generatedHandle(user);
   const userRef=sdk.doc(db,'users',user.uid);
-  const current=await sdk.getDoc(userRef);
-  if(current.exists()&&handleFormat.test(String(current.data().handle||''))){cacheProfile(current.data());return current.data();}
-  for(let attempt=0;attempt<20;attempt++){
-    const handle=generatedHandle();
-    const handleRef=sdk.doc(db,'handles',handle);
-    const result=await sdk.runTransaction(db,async tx=>{
-      const [handleSnap,profileSnap]=await Promise.all([tx.get(handleRef),tx.get(userRef)]);
-      if(profileSnap.exists()&&handleFormat.test(String(profileSnap.data().handle||'')))return profileSnap.data();
-      if(handleSnap.exists())return null;
-      const profile=profileSnap.exists()?{...profileSnap.data(),uid:user.uid,handle,displayName:handle}:{uid:user.uid,handle,displayName:handle,createdAt:sdk.serverTimestamp()};
-      tx.set(handleRef,{uid:user.uid,handle,createdAt:sdk.serverTimestamp()});
-      tx.set(userRef,profile);
-      return {...profile,createdAt:null};
-    });
-    if(result){cacheProfile(result);return result;}
-  }
-  throw Error('Could not reserve a unique username. Please retry.');
+  const handleRef=sdk.doc(db,'handles',handle);
+  const result=await sdk.runTransaction(db,async tx=>{
+    const [handleSnap,profileSnap]=await Promise.all([tx.get(handleRef),tx.get(userRef)]);
+    if(handleSnap.exists()&&handleSnap.data().uid!==user.uid)throw Error('This generated ID is already mapped to another account. Contact support.');
+    const oldProfile=profileSnap.exists()?profileSnap.data():null;
+    const profile=oldProfile?{...oldProfile,uid:user.uid,handle,displayName:handle}:{uid:user.uid,handle,displayName:handle,createdAt:sdk.serverTimestamp()};
+    if(!handleSnap.exists())tx.set(handleRef,{uid:user.uid,handle,createdAt:sdk.serverTimestamp()});
+    if(!oldProfile||oldProfile.handle!==handle||oldProfile.displayName!==handle)tx.set(userRef,profile);
+    return {...profile,createdAt:oldProfile?.createdAt||null};
+  });
+  cacheProfile(result);
+  return result;
 }
 async function loadRelationships(user){
   unsubRelationships?.();
@@ -272,12 +270,15 @@ function listenIncomingCalls(user){
   },error=>setStatus(friendlyError(error),true));
 }
 async function loadVerifiedUser(user){
+  if(currentUser?.uid&&user?.uid&&currentUser.uid!==user.uid)clearMemberSession();
   currentUser=user;
   if(!user){clearMemberSession();if(!memberStatus)memberStatus='Signed out.';appBridge.render();return;}
   if(!appBridge.isUnlocked?.())return;
   if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;memberProfileState='idle';relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
-  const cached=readCachedProfile(user.uid);
-  memberProfile=cached;memberProfileState=cached?'ready':'loading';appBridge.render();
+  const handle=generatedHandle(user);
+  const localProfile={uid:user.uid,handle,displayName:handle};
+  cacheProfile(localProfile);
+  memberProfile=localProfile;memberProfileState='local';memberStatus='Your unique username is ready on this device. It will become searchable after your account syncs online.';appBridge.render();
   try{
     memberProfile=await ensureProfile(user);
     memberProfileState='ready';
@@ -287,12 +288,9 @@ async function loadVerifiedUser(user){
     if(appBridge.getState().view==='members')appBridge.navigate('communications');
     appBridge.render();
   }catch(error){
-    if(cached){
-      memberProfile=cached;memberProfileState='ready';
-      setStatus('Username loaded from this device. Reconnect to sync your member account.',true);
-    }else{
-      memberProfile=null;memberProfileState='error';setStatus(friendlyError(error),true);
-    }
+    memberProfile=localProfile;memberProfileState='local';
+    const offline=!navigator.onLine||String(error?.code||'').includes('unavailable')||String(error?.code||'').includes('network');
+    setStatus(offline?'Your unique username is generated on this device. Connect to the Internet to make it searchable.':'Your username is ready on this device, but Firestore could not sync it. '+friendlyError(error),!offline);
     appBridge.render();
   }
 }
@@ -613,5 +611,5 @@ const messageStyle=document.createElement('style');messageStyle.textContent='.sf
 const messageEnhancementStyle=document.createElement('style');messageEnhancementStyle.textContent='.sfn-message-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;margin:7px 0;border:1px solid #245362;border-radius:12px;background:linear-gradient(105deg,#0a222c,#151b38);color:#c9f9ff}.sfn-message-tools strong,.sfn-message-tools small{display:block}.sfn-message-tools strong{font-size:10px}.sfn-message-tools small{margin-top:3px;color:#80a8af;font:8px var(--mono)}.sfn-tool-actions{display:flex;gap:6px}.sfn-tool-actions button,.sfn-language-row button{border:1px solid #2b6874;border-radius:9px;background:#0b2a35;color:#9feef4;padding:7px 9px;font-size:9px;white-space:nowrap}.sfn-tool-actions button[aria-pressed="true"]{background:#164e5b;border-color:#4fe3ee;box-shadow:0 0 12px #31d9e533}.sfn-language-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 8px;color:#88aeb3;font:9px var(--mono)}.sfn-language-row[hidden]{display:none}.sfn-hologram-mode{background:linear-gradient(145deg,rgba(12,45,62,.92),rgba(24,13,52,.94));border-color:#4fe1ef;box-shadow:0 0 28px #27d9ef24,0 0 40px #9d54f51a,inset 0 1px #b8fbff22}.sfn-hologram-mode .sfn-neural-feed{background:radial-gradient(ellipse at 50% 0,#216e8538,transparent 62%),#081827!important}@media(max-width:480px){.sfn-message-tools{align-items:flex-start;flex-direction:column}.sfn-tool-actions{width:100%}.sfn-tool-actions button{flex:1}}';document.head.append(messageEnhancementStyle);
 const messageIdentityStyle=document.createElement('style');messageIdentityStyle.textContent='.sfn-message-sender{display:block;margin-bottom:5px;color:#8ce9f0;font:8px var(--mono);letter-spacing:.3px}.sfn-neural-feed .bubble.mine .sfn-message-sender{text-align:right;color:#aed5ff}';document.head.append(messageIdentityStyle);
 if(configured&&appBridge.isUnlocked?.()&&appBridge.getState().view==='members')void startFirebase();
-window.addEventListener('online',()=>{syncOfflineNotice();const view=appBridge.getState().view;if(currentUser&&memberProfileState==='error'&&appBridge.isUnlocked?.())void loadVerifiedUser(currentUser);else if(configured&&appBridge.isUnlocked?.()&&(view==='members'||view==='communications')&&!firebaseStarted)void startFirebase();});
+window.addEventListener('online',()=>{syncOfflineNotice();const view=appBridge.getState().view;if(currentUser&&(memberProfileState==='error'||memberProfileState==='local')&&appBridge.isUnlocked?.())void loadVerifiedUser(currentUser);else if(configured&&appBridge.isUnlocked?.()&&(view==='members'||view==='communications')&&!firebaseStarted)void startFirebase();});
 window.addEventListener('offline',syncOfflineNotice);
