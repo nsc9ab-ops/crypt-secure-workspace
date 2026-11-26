@@ -202,10 +202,21 @@ function generatedHandle(){
   const suffix=[...bytes.slice(1)].map(value=>alphabet[value&31]).join('');
   return 'SFN-'+callsign+'-'+suffix;
 }
+function cachedProfileKey(uid){return 'sfn_member_profile_'+uid;}
+function readCachedProfile(uid){
+  try{
+    const value=JSON.parse(localStorage.getItem(cachedProfileKey(uid))||'null');
+    return value&&value.uid===uid&&handleFormat.test(String(value.handle||''))?value:null;
+  }catch{return null}
+}
+function cacheProfile(profile){
+  if(!profile?.uid||!handleFormat.test(String(profile.handle||'')))return;
+  try{localStorage.setItem(cachedProfileKey(profile.uid),JSON.stringify({uid:profile.uid,handle:profile.handle,displayName:profile.displayName||profile.handle}));}catch{}
+}
 async function ensureProfile(user){
   const userRef=sdk.doc(db,'users',user.uid);
   const current=await sdk.getDoc(userRef);
-  if(current.exists()&&handleFormat.test(String(current.data().handle||'')))return current.data();
+  if(current.exists()&&handleFormat.test(String(current.data().handle||''))){cacheProfile(current.data());return current.data();}
   for(let attempt=0;attempt<20;attempt++){
     const handle=generatedHandle();
     const handleRef=sdk.doc(db,'handles',handle);
@@ -218,7 +229,7 @@ async function ensureProfile(user){
       tx.set(userRef,profile);
       return {...profile,createdAt:null};
     });
-    if(result)return result;
+    if(result){cacheProfile(result);return result;}
   }
   throw Error('Could not reserve a unique username. Please retry.');
 }
@@ -265,7 +276,8 @@ async function loadVerifiedUser(user){
   if(!user){clearMemberSession();if(!memberStatus)memberStatus='Signed out.';appBridge.render();return;}
   if(!appBridge.isUnlocked?.())return;
   if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;memberProfileState='idle';relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
-  memberProfile=null;memberProfileState='loading';appBridge.render();
+  const cached=readCachedProfile(user.uid);
+  memberProfile=cached;memberProfileState=cached?'ready':'loading';appBridge.render();
   try{
     memberProfile=await ensureProfile(user);
     memberProfileState='ready';
@@ -274,7 +286,15 @@ async function loadVerifiedUser(user){
     listenIncomingCalls(user);
     if(appBridge.getState().view==='members')appBridge.navigate('communications');
     appBridge.render();
-  }catch(error){memberProfile=null;memberProfileState='error';setStatus(friendlyError(error),true);appBridge.render();}
+  }catch(error){
+    if(cached){
+      memberProfile=cached;memberProfileState='ready';
+      setStatus('Username loaded from this device. Reconnect to sync your member account.',true);
+    }else{
+      memberProfile=null;memberProfileState='error';setStatus(friendlyError(error),true);
+    }
+    appBridge.render();
+  }
 }
 async function startFirebase(){
   if(!configured||firebaseStarted||!appBridge.isUnlocked?.())return;
