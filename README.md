@@ -20,7 +20,7 @@ The repository includes the client integration, `firestore.rules`, and `firestor
 2. In Firebase Authentication, enable Phone sign-in, configure the SMS region policy, and add `nsc9ab-ops.github.io` to the authorized domains. If the member form reports `configuration-not-found` or `operation-not-allowed`, Phone sign-in is not enabled; open the Authentication setup link shown on the Members page.
 3. Create a Cloud Firestore database.
 4. Install the Firebase CLI, authenticate with the project owner account, then deploy the included rules and index: `firebase deploy --only firestore --project YOUR_PROJECT_ID`.
-5. Publish the updated site. Members register with email and a password, verify email, sign in, then share their generated `SFN-XXXX-XXXX` username. A friend request must be accepted before messaging or calling.
+5. Publish the updated site. Members receive a unique callsign username such as `SFN-VEGA-7K3P` after verified registration. The code is reserved transactionally, so two accounts cannot claim the same username. A friend request must be accepted before messaging or calling.
 
 Voice calls use WebRTC. The included public STUN server may not connect peers on every network; add TURN through a provider or protected token service for broader reach. Do not put permanent TURN credentials in this public site. Firebase signaling supports calls while the app is open; background ringing and push notifications are not included.
 

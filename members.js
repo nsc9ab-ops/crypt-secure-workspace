@@ -8,6 +8,7 @@ const appBridge = window.SFNApp;
 const panel = document.querySelector('#panel');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const handleFormat = /^SFN-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+const handleCallsigns = ['NOVA','VEGA','LYRA','ALTA','AURA','APOL','CYGN','DRAC','ORBI','ATOM','QUAS','NEON','LUMA','ONYX','ZETA','VELA','MIRA','ARGO','ARIA','ECHO','AXIS','OPAL','ORCA','SAGE','RUNE','HELI','SOLA','NEXU','PULS','KILO','HEXA','APEX'];
 let sdk = null;
 let firebaseAuth = null;
 let db = null;
@@ -102,8 +103,11 @@ function authView(){
   return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>'+(authMethod==='email'?'Email and password':'Sign in with your phone')+'</h2><span class="tag">'+(authMethod==='email'?'EMAIL VERIFIED':'SMS VERIFIED')+'</span></div><p class="hint">'+(authMethod==='email'?'Use an email address and password. New accounts must verify the address before member features are enabled.':'Use your phone number in international format. Firebase will send a one-time SMS code, then Scott.F.N will generate your member username.')+'</p><div class="button-row" style="margin:10px 0"><button class="btn '+(authMethod==='phone'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="phone">Phone</button><button class="btn '+(authMethod==='email'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="email">Email & password</button></div>'+statusBox()+'<form id="memberAuthForm">'+form+'</form><div class="button-row" style="margin-top:12px">'+(phoneConfirmation?'<button class="btn subtle" type="button" data-member="phone-start-over">Use a different number</button>':'<button class="btn subtle" type="button" data-member="toggle-auth">'+(registering?'Already a member? Sign in':'Create a member account')+'</button>')+(authMethod==='email'&&!registering?'<button class="btn subtle" type="button" data-member="reset-password">Forgot password?</button>':'')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Verified accounts can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Never share your password or SMS code.</p><p class="hint">Offline member data is stored in this browser&#39;s persistent cache and may remain after sign-out. Use a trusted, private device.</p><p class="hint">Email and phone sign-ins may create separate accounts unless explicitly linked in Firebase.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
 }
 function profileHandle(){
-  if(!memberProfile){const loading=memberProfileState==='loading';const failed=memberProfileState==='error';const title=loading?'Loading your username…':failed?'Username unavailable':'Sign in to get your username';const hint=loading?'Checking your secure account profile…':failed?'The account service could not load your profile. Check your connection, then retry.':'Sign in to create or view your member username.';const action=failed&&currentUser?'<button class="btn small" type="button" data-member="retry-profile">Retry</button>':'<button class="btn small" type="button" disabled>Copy username</button>';return '<div class="card sfn-own-username" style="margin-bottom:14px" aria-live="polite"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+title+'</strong></div>'+action+'</div><div class="hint">'+hint+'</div></div>';}
-  return '<div class="card" style="margin-bottom:14px"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+esc(memberProfile.handle)+'</strong></div><button class="btn small" data-member="copy-handle">Copy username</button></div><div class="button-row"><span class="hint">Share this username with people you trust.</span><button class="btn small subtle" data-member="sign-out">Sign out</button></div></div>';
+  const loading=memberProfileState==='loading',failed=memberProfileState==='error';
+  const title=memberProfile?esc(memberProfile.handle):loading?'Generating your unique ID…':failed?'Username unavailable':'Sign in to get your username';
+  const hint=memberProfile?'Share this unique code so trusted members can find you.':loading?'Reserving a unique Scott.F.N identity…':failed?'The account service could not load your profile. Check your connection, then retry.':'Sign in to create or view your member username.';
+  const action=memberProfile?'<button class="btn small" data-member="copy-handle">Copy ID</button>':failed&&currentUser?'<button class="btn small" type="button" data-member="retry-profile">Retry</button>':'<button class="btn small" type="button" disabled>Copy ID</button>';
+  return '<div class="card sfn-identity-card" style="margin-bottom:14px" aria-live="polite"><div class="sfn-identity-topline"><span>SCOTT.F.N · MEMBER ID</span><span class="sfn-identity-status"><i aria-hidden="true"></i>'+(memberProfile?'RESERVED':loading?'SYNCING':failed?'OFFLINE':'SECURE')+'</span></div><div class="cardhead"><div><div class="smalllabel">YOUR UNIQUE USERNAME</div><strong class="sfn-identity-handle">'+title+'</strong></div>'+action+'</div><div class="button-row"><span class="hint">'+hint+'</span>'+(memberProfile?'<button class="btn small subtle" data-member="sign-out">Sign out</button>':'')+'</div></div>';
 }
 function statusLabel(rel){
   if(rel.status==='accepted')return 'Connected';
@@ -164,6 +168,10 @@ function renderMembers(){
   if(appBridge.getState().view==='communications'){panel.innerHTML=communicationsView();return;}
   if(currentUser.email&&!currentUser.emailVerified){panel.innerHTML=pageHeader()+'<div class="card"><div class="cardhead"><h2>Verify your email</h2><span class="tag warn">ACTION NEEDED</span></div>'+statusBox('We sent a verification link to '+currentUser.email+'. Open it, then return here and check verification status.')+'<div class="button-row"><button class="btn primary" data-member="refresh-email">I verified my email</button><button class="btn" data-member="resend-verification">Resend verification email</button><button class="btn subtle" data-member="sign-out">Sign out</button></div></div>';return;}
   panel.innerHTML=signedInView();
+  const lookupForm=document.querySelector('#memberLookupForm');
+  const lookupInput=lookupForm?.querySelector('#memberLookup');
+  if(lookupInput)lookupInput.placeholder='SFN-VEGA-7K3P';
+  if(lookupForm?.previousElementSibling)lookupForm.previousElementSibling.textContent='Enter their unique username, for example SFN-VEGA-7K3P.';
   const remoteAudio=document.querySelector('#memberRemoteAudio');
   if(remoteAudio&&remoteStream)remoteAudio.srcObject=remoteStream;
   const messageBox=document.querySelector('#memberMessages');
@@ -189,9 +197,10 @@ function clearMemberSession(){
 }
 function generatedHandle(){
   const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes=crypto.getRandomValues(new Uint8Array(8));
-  const chars=[...bytes].map(value=>alphabet[value%alphabet.length]);
-  return 'SFN-'+chars.slice(0,4).join('')+'-'+chars.slice(4).join('');
+  const bytes=crypto.getRandomValues(new Uint8Array(5));
+  const callsign=handleCallsigns[bytes[0]&31];
+  const suffix=[...bytes.slice(1)].map(value=>alphabet[value&31]).join('');
+  return 'SFN-'+callsign+'-'+suffix;
 }
 async function ensureProfile(user){
   const userRef=sdk.doc(db,'users',user.uid);
@@ -339,7 +348,7 @@ async function lookupMember(event){
   event.preventDefault();
   const input=document.querySelector('#memberLookup');
   const handle=input.value.trim().toUpperCase();
-  if(!handleFormat.test(handle))return setStatus('Enter a complete username like SFN-A7KM-3P9X.',true);
+  if(!handleFormat.test(handle))return setStatus('Enter a complete username like SFN-VEGA-7K3P.',true);
   try{
     setStatus('Looking up '+handle+'…');
     const handleDoc=await sdk.getDoc(sdk.doc(db,'handles',handle));
