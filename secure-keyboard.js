@@ -1,89 +1,260 @@
-/* Scott.F.N in-app keyboard. It keeps sensitive entry inside the app shell. */
+/* Scott.F.N in-app keyboard, styled after a compact Android keyboard. */
 (() => {
-  const sensitive = new Set(['accessPass','memberPassword','memberPasswordConfirm','memberPhone','memberCode','memberLookup']);
-  const digitFields = new Set(['memberCode']);
-  const passwordFields = new Set(['accessPass','memberPassword','memberPasswordConfirm']);
-  const state = { input: null, mode: 'text', panel: null };
+  const fieldIds = new Set(['accessPass','memberPassword','memberPasswordConfirm','memberPhone','memberCode','memberLookup']);
+  const numericIds = new Set(['memberCode']);
+  const passwordIds = new Set(['accessPass','memberPassword','memberPasswordConfirm']);
+  const state = { input: null, mode: 'text', panel: null, saved: null, shifted: false, symbols: false };
+  const originalAttributes = new WeakMap();
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   function markFields() {
-    sensitive.forEach(id => {
+    fieldIds.forEach(id => {
       const input = document.getElementById(id);
       if (!input || input.dataset.sfnKeyboard === '1') return;
+      originalAttributes.set(input, {
+        readonly: input.hasAttribute('readonly'),
+        inputmode: input.getAttribute('inputmode'),
+        autocomplete: input.getAttribute('autocomplete')
+      });
       input.dataset.sfnKeyboard = '1';
       input.setAttribute('inputmode', 'none');
       input.setAttribute('autocomplete', 'off');
       input.addEventListener('focus', () => open(input));
+      input.addEventListener('blur', () => queueMicrotask(() => {
+        if (state.input === input && !state.panel?.contains(document.activeElement)) close();
+      }));
     });
   }
 
-  function open(input) {
-    state.input = input;
-    state.mode = digitFields.has(input.id) || input.type === 'tel' ? 'digits' : input.id === 'memberLookup' ? 'callsign' : passwordFields.has(input.id) ? 'password' : 'text';
-    input.dataset.sfnKeyboardOpen = '1';
+  function capture(input) {
+    const original = originalAttributes.get(input) || {};
+    state.saved = {
+      readonly: original.readonly ?? input.hasAttribute('readonly'),
+      inputmode: original.inputmode ?? null,
+      autocomplete: original.autocomplete ?? null,
+      type: input.type
+    };
     input.setAttribute('inputmode', 'none');
+    input.setAttribute('autocomplete', 'off');
     input.setAttribute('readonly', 'readonly');
-    if (!state.panel) {
-      state.panel = document.createElement('section');
-      state.panel.className = 'sfn-keyboard';
-      state.panel.setAttribute('aria-label', 'Scott.F.N secure keyboard');
-      document.body.append(state.panel);
-      state.panel.addEventListener('click', onKey);
-    }
+  }
+
+  function restore() {
+    if (!state.input || !state.saved) return;
+    const input = state.input;
+    input.type = state.saved.type;
+    if (!state.saved.readonly) input.removeAttribute('readonly');
+    if (state.saved.inputmode === null) input.removeAttribute('inputmode');
+    else input.setAttribute('inputmode', state.saved.inputmode);
+    if (state.saved.autocomplete === null) input.removeAttribute('autocomplete');
+    else input.setAttribute('autocomplete', state.saved.autocomplete);
+    delete input.dataset.sfnKeyboardOpen;
+    state.saved = null;
+  }
+
+  function open(input) {
+    if (state.input && state.input !== input) restore();
+    state.input = input;
+    state.mode = numericIds.has(input.id) || input.type === 'tel' ? 'digits' : input.id === 'memberLookup' ? 'callsign' : passwordIds.has(input.id) ? 'password' : 'text';
+    state.shifted = state.mode === 'callsign';
+    state.symbols = false;
+    capture(input);
+    input.dataset.sfnKeyboardOpen = '1';
+    ensurePanel();
     render();
+  }
+
+  function ensurePanel() {
+    if (state.panel) return;
+    state.panel = document.createElement('section');
+    state.panel.className = 'sfn-keyboard';
+    state.panel.setAttribute('aria-label', 'Scott.F.N secure keyboard');
+    state.panel.setAttribute('aria-hidden', 'true');
+    state.panel.innerHTML = '<div class="sfn-kb-shell"></div>';
+    document.body.append(state.panel);
+    state.panel.addEventListener('pointerdown', event => event.preventDefault());
+    state.panel.addEventListener('click', onKey);
   }
 
   function close() {
     if (!state.input) return;
-    state.input.removeAttribute('readonly');
-    state.input.removeAttribute('data-sfn-keyboard-open');
+    const input = state.input;
+    restore();
     state.input = null;
     state.panel?.classList.remove('open');
+    state.panel?.setAttribute('aria-hidden', 'true');
+    input.blur();
   }
 
-  function keys() {
-    if (state.mode === 'digits') return [...randomDigits(), '⌫', 'Clear', 'Done'];
-    if (state.mode === 'callsign') return ['S','F','N','-','A','B','C','D','E','G','K','L','M','N','O','P','Q','R','T','U','V','W','X','Y','Z','2','3','4','5','6','7','8','9','⌫','Clear','Done'];
-    if (state.mode === 'password') return [...'1234567890', ...'QWERTYUIOP', ...'ASDFGHJKL', ...'ZXCVBNM', ...'qwertyuiop', ...'asdfghjkl', ...'zxcvbnm', ...'!@#$%^&*', '⌫', 'Clear', 'Done'];
-    return ['1','2','3','4','5','6','7','8','9','0','Q','W','E','R','T','Y','U','I','O','P','A','S','D','F','G','H','J','K','L','⌫','Clear','Done'];
+  function key(label, value = label, action = '', kind = '') {
+    return { label, value, action, kind };
+  }
+  function letterRows() {
+    const caps = state.mode === 'callsign' || state.shifted;
+    const map = text => [...text].map(char => key(caps ? char.toUpperCase() : char.toLowerCase()));
+    return [
+      [...'1234567890'].map(char => key(char)),
+      map('qwertyuiop'),
+      map('asdfghjkl'),
+      [key('⇧', '', 'shift', 'modifier'), ...map('zxcvbnm'), key('⌫', '', 'backspace', 'modifier')],
+      [key('?123', '', 'symbols', 'modifier'), ...(state.mode === 'callsign' ? [key('-', '-', '', 'punctuation'), key('English (UK)', '', 'noop', 'space')] : [key(',', ',', '', 'punctuation'), key('English (UK)', ' ', '', 'space'), key('.', '.', '', 'punctuation')]), key(state.mode === 'callsign' ? '✓' : '↵', '', 'done', 'action')]
+    ];
+  }
+  function symbolRows() {
+    if (state.mode === 'callsign') {
+      const digits = [...'0123456789'];
+      shuffle(digits);
+      return [
+        digits.slice(0,3).map(char => key(char)),
+        digits.slice(3,6).map(char => key(char)),
+        digits.slice(6,9).map(char => key(char)),
+        [key(digits[9]), key('-', '-'), key('⌫', '', 'backspace', 'modifier')],
+        [key('ABC', '', 'letters', 'modifier'), key('English (UK)', '', 'noop', 'space'), key('✓', '', 'done', 'action')]
+      ];
+    }
+    const groups = ['1234567890', '@#$%&-*+=', '()!?:;\'"/'];
+    return [
+      [...groups[0]].map(char => key(char)),
+      [...groups[1]].map(char => key(char)),
+      [...groups[2]].map(char => key(char)),
+      [key('ABC', '', 'letters', 'modifier'), key('⌫', '', 'backspace', 'modifier')],
+      [key('ABC', '', 'letters', 'modifier'), key(state.mode === 'callsign' ? '-' : ',', state.mode === 'callsign' ? '-' : ','), key('English (UK)', ' ', '', 'space'), key('.', '.'), key(state.mode === 'callsign' ? '✓' : '↵', '', 'done', 'action')]
+    ];
+  }
+  function digitRows() {
+    const digits = [...'123456789'];
+    if (state.mode === 'digits') shuffle(digits);
+    return [
+      digits.slice(0,3).map(char => key(char)),
+      digits.slice(3,6).map(char => key(char)),
+      digits.slice(6,9).map(char => key(char)),
+      [key('Clear', '', 'clear', 'modifier'), key('0', '0'), key('⌫', '', 'backspace', 'modifier')],
+      [key('123', '', 'noop', 'modifier'), key('English (UK)', '', 'noop', 'space'), key('✓', '', 'done', 'action')]
+    ];
+  }
+  function makeRows() {
+    if (state.mode === 'digits') return digitRows();
+    return state.symbols ? symbolRows() : letterRows();
+  }
+  function shuffle(items) {
+    const random = crypto.getRandomValues(new Uint32Array(items.length));
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = random[i] % (i + 1);
+      [items[i], items[j]] = [items[j], items[i]];
+    }
   }
 
-  function randomDigits() {
-    const values = ['0','1','2','3','4','5','6','7','8','9'];
-    const random = crypto.getRandomValues(new Uint32Array(values.length));
-    for (let i = values.length - 1; i > 0; i--) { const j = random[i] % (i + 1); [values[i], values[j]] = [values[j], values[i]]; }
-    return values;
+  function title() {
+    if (state.mode === 'digits') return 'SECURE NUMERIC ENTRY';
+    if (state.mode === 'callsign') return 'SCOTT.F.N USERNAME';
+    return state.mode === 'password' ? 'PRIVATE PASSWORD ENTRY' : 'SECURE ENTRY';
   }
-
+  function previewValue() {
+    const value = state.input?.value || '';
+    if (state.mode === 'password' && value) return '•'.repeat(value.length);
+    return value || state.input?.placeholder || 'Type securely';
+  }
   function render() {
     if (!state.panel || !state.input) return;
-    const title = state.mode === 'digits' ? 'SECURE NUMERIC KEYPAD' : state.mode === 'callsign' ? 'CALLSIGN ENTRY' : 'SECURE ENTRY';
-    state.panel.innerHTML = '<div class="sfn-keyboard-head"><span><i></i>'+title+'</span><button type="button" data-key="close" aria-label="Close keyboard">×</button></div><div class="sfn-keyboard-preview">'+esc(state.input.value || 'Ready')+'</div><div class="sfn-keyboard-grid">'+keys().map(key => '<button type="button" data-key="'+esc(key)+'" class="'+(key.length>1?'wide':'')+'">'+esc(key)+'</button>').join('')+'</div><p>Local app keyboard · input is kept in this field only</p>';
+    state.panel.classList.toggle('numeric', state.mode === 'digits' || (state.mode === 'callsign' && state.symbols));
+    const rows = makeRows();
+    state.panel.querySelector('.sfn-kb-shell').innerHTML =
+      '<div class="sfn-kb-entry"><span class="sfn-kb-search" aria-hidden="true">⌕</span><span class="sfn-kb-value">'+esc(previewValue())+'</span><span class="sfn-kb-entry-status">●</span></div>'+
+      '<div class="sfn-kb-toolbar"><span class="sfn-kb-mark" aria-hidden="true">SF</span><span class="sfn-kb-caption">'+title()+'</span><span class="sfn-kb-spacer"></span>'+(state.mode === 'password' ? '<button class="sfn-kb-tool" type="button" data-action="visibility" aria-label="Show or hide password">◉</button>' : '')+'<span class="sfn-kb-lock" aria-label="Local keyboard">◆</span><button class="sfn-kb-tool sfn-kb-close" type="button" data-action="close" aria-label="Close keyboard">⌄</button></div>'+
+      '<div class="sfn-kb-rows">'+rows.map((row,index)=>'<div class="sfn-kb-row sfn-kb-row-'+index+'">'+row.map(item=>'<button type="button" class="sfn-kb-key '+(item.kind||'')+'" data-action="'+esc(item.action)+'" data-value="'+esc(item.value)+'" aria-label="'+esc(item.action||item.value||item.label)+'">'+esc(item.label)+'</button>').join('')+'</div>').join('')+'</div>'+
+      '<div class="sfn-kb-foot"><span>ON-DEVICE INPUT</span><span>·</span><span>ENGLISH (UK)</span></div>';
     state.panel.classList.add('open');
+    state.panel.setAttribute('aria-hidden', 'false');
   }
 
-  function onKey(event) {
-    const button = event.target.closest('[data-key]');
-    if (!button || !state.input) return;
-    const key = button.dataset.key;
-    if (key === 'close') return close();
-    if (key === 'Done') { state.input.form?.requestSubmit?.(); close(); return; }
-    if (key === 'Clear') { state.input.value = ''; return notify(); }
-    if (key === '⌫') { state.input.value = state.input.value.slice(0, -1); return notify(); }
-    const max = Number(state.input.maxLength) > 0 ? Number(state.input.maxLength) : 128;
-    if (state.input.value.length < max) state.input.value += key;
+  function insert(value) {
+    const input = state.input;
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    const limit = Number(input.maxLength) > 0 ? Number(input.maxLength) : 128;
+    if (input.value.length - (end - start) >= limit) return;
+    input.value = input.value.slice(0, start) + value + input.value.slice(end);
+    const cursor = start + value.length;
+    try { input.setSelectionRange(cursor, cursor); } catch {}
     notify();
   }
-
+  function erase() {
+    const input = state.input;
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+    if (start === end && start > 0) input.value = input.value.slice(0, start - 1) + input.value.slice(end);
+    else input.value = input.value.slice(0, start) + input.value.slice(end);
+    const cursor = start === end ? Math.max(0, start - 1) : start;
+    try { input.setSelectionRange(cursor, cursor); } catch {}
+    notify();
+  }
   function notify() {
     state.input.dispatchEvent(new Event('input', { bubbles: true }));
     state.input.dispatchEvent(new Event('change', { bubbles: true }));
-    render();
+    const preview = state.panel?.querySelector('.sfn-kb-value');
+    if (preview) preview.textContent = previewValue();
+  }
+  function onKey(event) {
+    const button = event.target.closest('[data-action]');
+    if (!button || !state.input) return;
+    const action = button.dataset.action;
+    if (action === 'close') return close();
+    if (action === 'done') { state.input.form?.requestSubmit?.(); close(); return; }
+    if (action === 'clear') { state.input.value = ''; try { state.input.setSelectionRange(0,0); } catch {} return notify(); }
+    if (action === 'backspace') return erase();
+    if (action === 'shift') { state.shifted = !state.shifted; return render(); }
+    if (action === 'symbols') { state.symbols = true; return render(); }
+    if (action === 'letters') { state.symbols = false; return render(); }
+    if (action === 'visibility') {
+      state.input.type = state.input.type === 'password' ? 'text' : 'password';
+      button.setAttribute('aria-pressed', String(state.input.type === 'text'));
+      return;
+    }
+    insert(button.dataset.value ?? '');
   }
 
   const style = document.createElement('style');
-  style.textContent = '.sfn-keyboard{position:fixed;z-index:120;left:50%;bottom:14px;width:min(460px,calc(100vw - 24px));padding:12px;border:1px solid #39d98d;border-radius:22px;background:linear-gradient(145deg,#071b18f5,#071218f7);box-shadow:0 18px 60px #000b,0 0 32px #31ff9b24;backdrop-filter:blur(20px);opacity:0;transform:translate(-50%,18px) scale(.97);pointer-events:none;transition:.22s ease}.sfn-keyboard.open{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}.sfn-keyboard-head{display:flex;justify-content:space-between;align-items:center;color:#91ffc8;font:10px ui-monospace,monospace;letter-spacing:.1em}.sfn-keyboard-head span{display:flex;align-items:center;gap:7px}.sfn-keyboard-head i{width:7px;height:7px;border-radius:50%;background:#57ffad;box-shadow:0 0 10px #57ffad}.sfn-keyboard-head button{border:0;background:transparent;color:#a9c9c2;font-size:21px;line-height:1}.sfn-keyboard-preview{min-height:35px;margin:9px 0;padding:8px 10px;border:1px solid #245246;border-radius:10px;background:#061311;color:#dffff0;font:15px ui-monospace,monospace;overflow-wrap:anywhere}.sfn-keyboard-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}.sfn-keyboard-grid button{min-height:38px;padding:3px;border:1px solid #205641;border-radius:9px;background:#0c2820;color:#d9fff0;font:600 13px ui-monospace,monospace}.sfn-keyboard-grid button:hover,.sfn-keyboard-grid button:focus-visible{border-color:#76ffc0;background:#164c37;box-shadow:0 0 11px #48f5a33b;outline:0}.sfn-keyboard-grid button.wide{grid-column:span 2}.sfn-keyboard p{margin:8px 0 0;color:#6d9488;text-align:center;font:9px ui-monospace,monospace}@media(max-width:420px){.sfn-keyboard{bottom:7px;padding:9px}.sfn-keyboard-grid{gap:4px}.sfn-keyboard-grid button{min-height:35px;font-size:11px}}@media(prefers-reduced-motion:reduce){.sfn-keyboard{transition:none}}body.reduce-motion .sfn-keyboard{transition:none}';
+  style.textContent = `
+    .sfn-keyboard{position:fixed;z-index:9999;left:50%;bottom:0;width:100%;max-width:680px;padding:8px 12px calc(9px + env(safe-area-inset-bottom));box-sizing:border-box;background:#191a1d;color:#f5f5f7;box-shadow:0 -16px 48px #0009;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,18px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;font-family:Roboto,"Arial",sans-serif;touch-action:manipulation;user-select:none}
+    .sfn-keyboard.open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
+    .sfn-kb-entry{height:48px;display:flex;align-items:center;gap:12px;padding:0 15px;margin:0 0 8px;border:1px solid #37383b;border-radius:28px;background:#202124;color:#c4c6cc;font-size:15px;box-sizing:border-box}
+    .sfn-kb-search{font-size:24px;color:#d9dbe0;line-height:1}.sfn-kb-value{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sfn-kb-entry-status{font-size:9px;color:#77d957;text-shadow:0 0 8px #72e554}
+    .sfn-kb-toolbar{height:42px;display:flex;align-items:center;gap:10px;padding:0 5px 8px;color:#ddd}
+    .sfn-kb-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#343538;color:#f5f5f5;font-size:10px;font-weight:800;letter-spacing:-.5px}
+    .sfn-kb-caption{font:9px ui-monospace,monospace;letter-spacing:.08em;color:#92949a}.sfn-kb-spacer{flex:1}
+    .sfn-kb-lock{font-size:11px;color:#8bd96f;padding:0 4px;text-shadow:0 0 9px #7be55d}
+    .sfn-kb-tool{width:31px;height:31px;border:0;border-radius:50%;background:#343538;color:#ededf0;font-size:15px;display:grid;place-items:center}.sfn-kb-close{font-size:19px;color:#bfc1c7;background:transparent}
+    .sfn-kb-rows{display:grid;gap:8px}.sfn-kb-row{display:flex;justify-content:center;gap:6px;min-height:48px}
+    .sfn-kb-key{flex:1;min-width:0;max-width:58px;height:48px;border:0;border-radius:7px;background:#303135;color:#f5f5f6;box-shadow:0 1px 0 #090a0b;font:400 22px Roboto,"Arial",sans-serif;display:grid;place-items:center;padding:0 2px;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .sfn-kb-row-1 .sfn-kb-key,.sfn-kb-row-2 .sfn-kb-key{max-width:64px}
+    .sfn-kb-key:active{background:#505157;transform:translateY(1px)}
+    .sfn-kb-key.modifier{max-width:76px;flex:1.45;background:#222326;font-size:17px}
+    .sfn-kb-key.punctuation{max-width:54px;font-size:19px}
+    .sfn-kb-key.space{max-width:none;flex:5;font-size:14px;color:#d4d5d9}
+    .sfn-kb-key.action{max-width:68px;flex:1.2;background:#222326;color:#7cdb58;font-size:22px}
+    .sfn-keyboard.numeric .sfn-kb-row:not(.sfn-kb-row-4) .sfn-kb-key{max-width:110px}
+    .sfn-keyboard.numeric .sfn-kb-row-4 .sfn-kb-key.space{font-size:11px}
+    .sfn-kb-row-0 .sfn-kb-key{height:44px;min-height:44px;font-size:18px}
+    .sfn-kb-row-3{padding:0 1px}
+    .sfn-kb-row-4 .modifier{font-size:13px}
+    .sfn-kb-foot{display:flex;justify-content:center;gap:7px;height:17px;align-items:end;padding-top:3px;color:#74767c;font:8px ui-monospace,monospace;letter-spacing:.07em}
+    .sfn-kb-row-4:has(.action) .sfn-kb-key{height:47px}
+    @media(max-width:420px){.sfn-keyboard{padding-left:8px;padding-right:8px}.sfn-kb-rows{gap:7px}.sfn-kb-row{gap:5px;min-height:45px}.sfn-kb-key{height:45px;font-size:20px}.sfn-kb-key.modifier{max-width:58px;font-size:15px}.sfn-kb-key.action{max-width:57px}.sfn-kb-entry{height:44px}.sfn-kb-toolbar{height:38px}}
+    @media(prefers-reduced-motion:reduce){.sfn-keyboard{transition:none}}
+    body.reduce-motion .sfn-keyboard{transition:none}
+  `;
   document.head.append(style);
-  new MutationObserver(markFields).observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('pointerdown', event => {
+    if (!state.input || state.panel?.contains(event.target) || event.target === state.input) return;
+    close();
+  });
+  document.addEventListener('focusin', event => {
+    if (state.input && event.target !== state.input && !state.panel?.contains(event.target)) close();
+  });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.input) close(); });
+  new MutationObserver(() => {
+    markFields();
+    if (state.input && !state.input.isConnected) close();
+  }).observe(document.body, { childList: true, subtree: true });
   markFields();
 })();
