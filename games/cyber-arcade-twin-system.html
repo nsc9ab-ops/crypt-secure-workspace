@@ -129,6 +129,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            touch-action: none;
         }
 
         canvas {
@@ -150,6 +151,7 @@
             color: var(--neon-cyan);
             font-weight: bold;
             active: scale(0.92);
+            touch-action: none;
         }
         .dpad-btn:active {
             background: rgba(0, 243, 255, 0.35);
@@ -664,6 +666,7 @@
                 this.mouse = { x: 0, y: 0, down: false, rightDown: false, active: false };
                 this.touchDir = { x: 0, y: 0 };
                 this.touchAction = false;
+                this.swipeStart = null;
 
                 window.addEventListener('keydown', (e) => {
                     const code = e.code;
@@ -714,6 +717,7 @@
                         this.mouse.y = e.touches[0].clientY - rect.top;
                         this.mouse.down = true;
                         this.mouse.active = true;
+                        this.swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                     }
                 }, { passive: true });
 
@@ -726,8 +730,17 @@
                     }
                 }, { passive: true });
 
-                canvas.addEventListener('touchend', () => {
+                canvas.addEventListener('touchend', (e) => {
                     this.mouse.down = false;
+                    const start = this.swipeStart;
+                    const end = e.changedTouches?.[0];
+                    this.swipeStart = null;
+                    if (!start || !end || window.arcade?.currentMode !== 'snake') return;
+                    const dx = end.clientX - start.x;
+                    const dy = end.clientY - start.y;
+                    if (Math.max(Math.abs(dx), Math.abs(dy)) < 22) return;
+                    if (Math.abs(dx) > Math.abs(dy)) window.arcade.handleTouchDir(dx > 0 ? 1 : -1, 0);
+                    else window.arcade.handleTouchDir(0, dy > 0 ? 1 : -1);
                 });
             }
 
