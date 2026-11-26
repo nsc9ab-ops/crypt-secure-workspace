@@ -1,4 +1,8 @@
 const CONFIG = window.SFN_FIREBASE_CONFIG || {};
+const EMAIL_ACTION_SETTINGS = {
+  url: 'https://nsc9ab-ops.github.io/crypt-secure-workspace/',
+  handleCodeInApp: false
+};
 const configured = Boolean(CONFIG.apiKey && CONFIG.authDomain && CONFIG.projectId && CONFIG.appId && !CONFIG.projectId.startsWith('REPLACE_'));
 const appBridge = window.SFNApp;
 const panel = document.querySelector('#panel');
@@ -300,7 +304,7 @@ async function submitMemberAuth(event){
         if(password.length<12)throw Error('Choose a password with at least 12 characters.');
         if(password!==document.querySelector('#memberPasswordConfirm')?.value)throw Error('The passwords do not match.');
         const credential=await sdk.createUserWithEmailAndPassword(firebaseAuth,email,password);
-        await sdk.sendEmailVerification(credential.user);
+        await sdk.sendEmailVerification(credential.user,EMAIL_ACTION_SETTINGS);
         setStatus('Account created. Check your email for a verification link, then return here.');
         appBridge.render();
       }else{
@@ -517,7 +521,7 @@ async function handleMemberAction(button){
     else if(action==='phone-start-over'){phoneConfirmation=null;phoneRecaptcha?.clear?.();phoneRecaptcha=null;memberStatus='';appBridge.render();}
     else if(action==='resend-verification'){
       if(!firebaseAuth?.currentUser)return setStatus('Sign in again, then resend the verification email.',true);
-      await sdk.sendEmailVerification(firebaseAuth.currentUser);setStatus('Verification email sent.');
+      await sdk.sendEmailVerification(firebaseAuth.currentUser,EMAIL_ACTION_SETTINGS);setStatus('Verification email sent.');
     }
     else if(action==='refresh-email'){
       if(!firebaseAuth?.currentUser)return setStatus('Sign in again to check your email verification.',true);
