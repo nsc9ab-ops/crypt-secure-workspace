@@ -196,15 +196,15 @@ function generatedHandle(){
 async function ensureProfile(user){
   const userRef=sdk.doc(db,'users',user.uid);
   const current=await sdk.getDoc(userRef);
-  if(current.exists())return current.data();
+  if(current.exists()&&handleFormat.test(String(current.data().handle||'')))return current.data();
   for(let attempt=0;attempt<20;attempt++){
     const handle=generatedHandle();
     const handleRef=sdk.doc(db,'handles',handle);
     const result=await sdk.runTransaction(db,async tx=>{
       const [handleSnap,profileSnap]=await Promise.all([tx.get(handleRef),tx.get(userRef)]);
-      if(profileSnap.exists())return profileSnap.data();
+      if(profileSnap.exists()&&handleFormat.test(String(profileSnap.data().handle||'')))return profileSnap.data();
       if(handleSnap.exists())return null;
-      const profile={uid:user.uid,handle,displayName:handle,createdAt:sdk.serverTimestamp()};
+      const profile=profileSnap.exists()?{...profileSnap.data(),uid:user.uid,handle,displayName:handle}:{uid:user.uid,handle,displayName:handle,createdAt:sdk.serverTimestamp()};
       tx.set(handleRef,{uid:user.uid,handle,createdAt:sdk.serverTimestamp()});
       tx.set(userRef,profile);
       return {...profile,createdAt:null};
