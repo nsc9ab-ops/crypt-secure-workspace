@@ -9,6 +9,7 @@ let firebaseAuth = null;
 let db = null;
 let currentUser = null;
 let memberProfile = null;
+let memberProfileState = 'idle';
 let authMode = 'register';
 let authMethod = 'phone';
 let phoneConfirmation = null;
@@ -97,7 +98,7 @@ function authView(){
   return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>'+(authMethod==='email'?'Email and password':'Sign in with your phone')+'</h2><span class="tag">'+(authMethod==='email'?'EMAIL VERIFIED':'SMS VERIFIED')+'</span></div><p class="hint">'+(authMethod==='email'?'Use an email address and password. New accounts must verify the address before member features are enabled.':'Use your phone number in international format. Firebase will send a one-time SMS code, then Scott.F.N will generate your member username.')+'</p><div class="button-row" style="margin:10px 0"><button class="btn '+(authMethod==='phone'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="phone">Phone</button><button class="btn '+(authMethod==='email'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="email">Email & password</button></div>'+statusBox()+'<form id="memberAuthForm">'+form+'</form><div class="button-row" style="margin-top:12px">'+(phoneConfirmation?'<button class="btn subtle" type="button" data-member="phone-start-over">Use a different number</button>':'<button class="btn subtle" type="button" data-member="toggle-auth">'+(registering?'Already a member? Sign in':'Create a member account')+'</button>')+(authMethod==='email'&&!registering?'<button class="btn subtle" type="button" data-member="reset-password">Forgot password?</button>':'')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Verified accounts can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Never share your password or SMS code.</p><p class="hint">Offline member data is stored in this browser&#39;s persistent cache and may remain after sign-out. Use a trusted, private device.</p><p class="hint">Email and phone sign-ins may create separate accounts unless explicitly linked in Firebase.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
 }
 function profileHandle(){
-  if(!memberProfile){const loading=!!memberStatus;return '<div class="card sfn-own-username" style="margin-bottom:14px" aria-live="polite"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+(loading?'Waiting for your username…':'Loading your username…')+'</strong></div><button class="btn small" type="button" disabled>Copy username</button></div><div class="hint">'+(loading?'See the status above for the account setup message.':'Your search code will appear here when your member profile finishes loading.')+'</div></div>';}
+  if(!memberProfile){const loading=memberProfileState==='loading';const failed=memberProfileState==='error';const title=loading?'Loading your username…':failed?'Username unavailable':'Sign in to get your username';const hint=loading?'Checking your secure account profile…':failed?'The account service could not load your profile. Check your connection, then retry.':'Sign in to create or view your member username.';const action=failed&&currentUser?'<button class="btn small" type="button" data-member="retry-profile">Retry</button>':'<button class="btn small" type="button" disabled>Copy username</button>';return '<div class="card sfn-own-username" style="margin-bottom:14px" aria-live="polite"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+title+'</strong></div>'+action+'</div><div class="hint">'+hint+'</div></div>';}
   return '<div class="card" style="margin-bottom:14px"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+esc(memberProfile.handle)+'</strong></div><button class="btn small" data-member="copy-handle">Copy username</button></div><div class="button-row"><span class="hint">Share this username with people you trust.</span><button class="btn small subtle" data-member="sign-out">Sign out</button></div></div>';
 }
 function statusLabel(rel){
@@ -180,7 +181,7 @@ function stopCloudListeners(){
 function clearMemberSession(){
   stopCloudListeners();
   if(activeCallRef)void closeCall(true);
-  currentUser=null;memberProfile=null;relationships=[];profileByUid=new Map();activeRelationshipId='';messages=[];incomingCall=null;
+  currentUser=null;memberProfile=null;memberProfileState='idle';relationships=[];profileByUid=new Map();activeRelationshipId='';messages=[];incomingCall=null;
 }
 function generatedHandle(){
   const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -250,15 +251,17 @@ async function loadVerifiedUser(user){
   currentUser=user;
   if(!user){clearMemberSession();if(!memberStatus)memberStatus='Signed out.';appBridge.render();return;}
   if(!appBridge.isUnlocked?.())return;
-  if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
+  if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;memberProfileState='idle';relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
+  memberProfile=null;memberProfileState='loading';appBridge.render();
   try{
     memberProfile=await ensureProfile(user);
+    memberProfileState='ready';
     memberStatus='Signed in as '+memberProfile.handle+'.';
     await loadRelationships(user);
     listenIncomingCalls(user);
     if(appBridge.getState().view==='members')appBridge.navigate('communications');
     appBridge.render();
-  }catch(error){setStatus(friendlyError(error),true);appBridge.render();}
+  }catch(error){memberProfile=null;memberProfileState='error';setStatus(friendlyError(error),true);appBridge.render();}
 }
 async function startFirebase(){
   if(!configured||firebaseStarted||!appBridge.isUnlocked?.())return;
@@ -524,6 +527,7 @@ async function handleMemberAction(button){
       else setStatus('Email is not verified yet. Open the link in your inbox, then check again.',true);
     }
     else if(action==='sign-out'){if(activeCallRef)await endCall();memberStatus='Signed out.';authMode='login';await sdk.signOut(firebaseAuth);appBridge.render();}
+    else if(action==='retry-profile'){if(currentUser)await loadVerifiedUser(currentUser);}
     else if(action==='copy-handle'){
       await navigator.clipboard.writeText(memberProfile.handle);setStatus('Username copied.');
     }
@@ -576,5 +580,5 @@ const messageStyle=document.createElement('style');messageStyle.textContent='.sf
 const messageEnhancementStyle=document.createElement('style');messageEnhancementStyle.textContent='.sfn-message-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;margin:7px 0;border:1px solid #245362;border-radius:12px;background:linear-gradient(105deg,#0a222c,#151b38);color:#c9f9ff}.sfn-message-tools strong,.sfn-message-tools small{display:block}.sfn-message-tools strong{font-size:10px}.sfn-message-tools small{margin-top:3px;color:#80a8af;font:8px var(--mono)}.sfn-tool-actions{display:flex;gap:6px}.sfn-tool-actions button,.sfn-language-row button{border:1px solid #2b6874;border-radius:9px;background:#0b2a35;color:#9feef4;padding:7px 9px;font-size:9px;white-space:nowrap}.sfn-tool-actions button[aria-pressed="true"]{background:#164e5b;border-color:#4fe3ee;box-shadow:0 0 12px #31d9e533}.sfn-language-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 8px;color:#88aeb3;font:9px var(--mono)}.sfn-language-row[hidden]{display:none}.sfn-hologram-mode{background:linear-gradient(145deg,rgba(12,45,62,.92),rgba(24,13,52,.94));border-color:#4fe1ef;box-shadow:0 0 28px #27d9ef24,0 0 40px #9d54f51a,inset 0 1px #b8fbff22}.sfn-hologram-mode .sfn-neural-feed{background:radial-gradient(ellipse at 50% 0,#216e8538,transparent 62%),#081827!important}@media(max-width:480px){.sfn-message-tools{align-items:flex-start;flex-direction:column}.sfn-tool-actions{width:100%}.sfn-tool-actions button{flex:1}}';document.head.append(messageEnhancementStyle);
 const messageIdentityStyle=document.createElement('style');messageIdentityStyle.textContent='.sfn-message-sender{display:block;margin-bottom:5px;color:#8ce9f0;font:8px var(--mono);letter-spacing:.3px}.sfn-neural-feed .bubble.mine .sfn-message-sender{text-align:right;color:#aed5ff}';document.head.append(messageIdentityStyle);
 if(configured&&appBridge.isUnlocked?.()&&appBridge.getState().view==='members')void startFirebase();
-window.addEventListener('online',()=>{syncOfflineNotice();const view=appBridge.getState().view;if(configured&&appBridge.isUnlocked?.()&&(view==='members'||view==='communications')&&!firebaseStarted)void startFirebase();});
+window.addEventListener('online',()=>{syncOfflineNotice();const view=appBridge.getState().view;if(currentUser&&memberProfileState==='error'&&appBridge.isUnlocked?.())void loadVerifiedUser(currentUser);else if(configured&&appBridge.isUnlocked?.()&&(view==='members'||view==='communications')&&!firebaseStarted)void startFirebase();});
 window.addEventListener('offline',syncOfflineNotice);
