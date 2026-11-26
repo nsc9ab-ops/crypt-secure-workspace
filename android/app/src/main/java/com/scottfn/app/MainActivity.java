@@ -67,12 +67,17 @@ public final class MainActivity extends FragmentActivity {
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(false);
+        settings.setAllowUniversalAccessFromFileURLs(false);
+        settings.setSupportMultipleWindows(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(false);
+        if (android.os.Build.VERSION.SDK_INT >= 26) settings.setSafeBrowsingEnabled(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if ("nsc9ab-ops.github.io".equals(uri.getHost())) return false;
+                if (isTrustedSite(uri)) return false;
                 try {
                     startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Exception ignored) { }
@@ -82,6 +87,10 @@ public final class MainActivity extends FragmentActivity {
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(PermissionRequest request) {
+                if (!isTrustedSite(Uri.parse(request.getOrigin().toString()))) {
+                    request.deny();
+                    return;
+                }
                 ArrayList<String> requestedResources = new ArrayList<>();
                 ArrayList<String> androidPermissions = new ArrayList<>();
                 for (String resource : request.getResources()) {
@@ -141,6 +150,12 @@ public final class MainActivity extends FragmentActivity {
             }
         });
         webView.loadUrl(SITE);
+    }
+
+    private boolean isTrustedSite(Uri uri) {
+        return uri != null && "https".equalsIgnoreCase(uri.getScheme())
+                && "nsc9ab-ops.github.io".equalsIgnoreCase(uri.getHost())
+                && (uri.getPort() == -1 || uri.getPort() == 443);
     }
 
     private SecretKey biometricKey() throws Exception {
@@ -225,7 +240,7 @@ public final class MainActivity extends FragmentActivity {
             return getSharedPreferences(PREFS, MODE_PRIVATE).contains("wrapped") && biometricReady();
         }
         @JavascriptInterface public void savePdf(String base64, String filename) {
-            if (!"nsc9ab-ops.github.io".equals(Uri.parse(webView.getUrl()).getHost())) return;
+            if (!isTrustedSite(Uri.parse(webView.getUrl()))) return;
             try {
                 byte[] data = Base64.decode(base64, Base64.DEFAULT);
                 if (data.length == 0 || data.length > 40 * 1024 * 1024) throw new IllegalArgumentException("This PDF is empty or too large to save.");
@@ -243,7 +258,7 @@ public final class MainActivity extends FragmentActivity {
             } catch (Exception error) { sendPdfResult(filename == null ? "PDF" : filename, error.getMessage() == null ? "Could not save this PDF." : error.getMessage()); }
         }
         @JavascriptInterface public void setup(String keyBase64) {
-            if (!"nsc9ab-ops.github.io".equals(Uri.parse(webView.getUrl()).getHost())) return;
+            if (!isTrustedSite(Uri.parse(webView.getUrl()))) return;
             try {
                 if (!biometricReady()) throw new IllegalStateException("Set up a secure face or fingerprint in Android settings first.");
                 KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
@@ -263,7 +278,7 @@ public final class MainActivity extends FragmentActivity {
             } catch (Exception error) { sendBiometricResult("setup", false, error.getMessage() == null ? "Biometric setup failed." : error.getMessage()); }
         }
         @JavascriptInterface public void unlock() {
-            if (!"nsc9ab-ops.github.io".equals(Uri.parse(webView.getUrl()).getHost())) return;
+            if (!isTrustedSite(Uri.parse(webView.getUrl()))) return;
             try {
                 if (!biometricReady()) throw new IllegalStateException("No secure face or fingerprint is available on this device.");
                 android.content.SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
