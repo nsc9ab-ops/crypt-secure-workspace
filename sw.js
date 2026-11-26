@@ -1,10 +1,11 @@
-const CACHE_NAME = 'sfn-shell-v26';
+const CACHE_NAME = 'sfn-shell-v27';
 const APP_FILES = [
   './',
   './index.html',
   './manifest.webmanifest',
   './firebase-config.js',
   './members.js',
+  './secure-keyboard.js',
   './features.js',
   './assets/member-motion.css',
   './app-icon.svg',
