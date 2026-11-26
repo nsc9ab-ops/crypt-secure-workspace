@@ -89,7 +89,8 @@ function friendlyError(error){
   if(code.includes('too-many-requests'))return 'Too many attempts. Wait a while and try again.';
   if(code.includes('internal-error'))return 'Phone verification could not start. Refresh the page and confirm this site is an authorized Firebase domain.';
   if(code.includes('permission-denied'))return 'Firebase denied this action. Confirm the Firestore rules were deployed.';
-  if(code.includes('unavailable')||code.includes('network-request-failed'))return 'The Internet service is unavailable. Check your connection and try again.';
+  if(code.includes('unavailable'))return 'Firebase is temporarily unavailable. Your Internet connection is still detected; tap Retry in a moment.';
+  if(code.includes('network-request-failed'))return 'The sign-in service could not be reached. Your browser may still be online; check that Firebase allows this site, then retry.';
   return error?.message||'The action could not be completed.';
 }
 function configView(){
@@ -290,8 +291,8 @@ async function loadVerifiedUser(user){
     appBridge.render();
   }catch(error){
     memberProfile=localProfile;memberProfileState='local';
-    const offline=!navigator.onLine||String(error?.code||'').includes('unavailable')||String(error?.code||'').includes('network');
-    setStatus(offline?'Your unique username is generated on this device. Connect to the Internet to make it searchable.':'Your username is ready on this device, but Firestore could not sync it. '+friendlyError(error),!offline);
+    const browserOffline=navigator.onLine===false;
+    setStatus(browserOffline?'Your unique username is generated on this device. The browser reports no network, so it will sync when the connection returns.':'Your Internet connection is available, but Firebase could not sync this username yet. '+friendlyError(error),true);
     appBridge.render();
   }
 }
