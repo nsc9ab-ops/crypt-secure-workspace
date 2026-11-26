@@ -62,12 +62,13 @@ function syncOfflineNotice(){
   if(navigator.onLine)notice?.remove();
 }
 function statusBox(text=memberStatus){
-  return '<div id="memberStatus" role="status" aria-live="polite" class="data-note" style="margin:12px 0">'+esc(text||'')+'</div>';
+  const message=text||'';
+  return '<div id="memberStatus" role="status" aria-live="polite" class="data-note" style="margin:12px 0"'+(message?'':' hidden')+'>'+esc(message)+'</div>';
 }
 function setStatus(text, isError=false){
   memberStatus=text||'';
   const el=document.querySelector('#memberStatus');
-  if(el){el.textContent=memberStatus;el.style.borderColor=isError?'#70434a':'';el.style.color=isError?'#ffb2b3':'';}
+  if(el){el.hidden=!memberStatus;el.textContent=memberStatus;el.style.borderColor=isError?'#70434a':'';el.style.color=isError?'#ffb2b3':'';}
 }
 function friendlyError(error){
   const code=error?.code||'';
@@ -96,7 +97,7 @@ function authView(){
   return pageHeader()+'<div class="two-col"><div class="card"><div class="cardhead"><h2>'+(authMethod==='email'?'Email and password':'Sign in with your phone')+'</h2><span class="tag">'+(authMethod==='email'?'EMAIL VERIFIED':'SMS VERIFIED')+'</span></div><p class="hint">'+(authMethod==='email'?'Use an email address and password. New accounts must verify the address before member features are enabled.':'Use your phone number in international format. Firebase will send a one-time SMS code, then Scott.F.N will generate your member username.')+'</p><div class="button-row" style="margin:10px 0"><button class="btn '+(authMethod==='phone'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="phone">Phone</button><button class="btn '+(authMethod==='email'?'primary':'subtle')+'" type="button" data-member="auth-method" data-method="email">Email & password</button></div>'+statusBox()+'<form id="memberAuthForm">'+form+'</form><div class="button-row" style="margin-top:12px">'+(phoneConfirmation?'<button class="btn subtle" type="button" data-member="phone-start-over">Use a different number</button>':'<button class="btn subtle" type="button" data-member="toggle-auth">'+(registering?'Already a member? Sign in':'Create a member account')+'</button>')+(authMethod==='email'&&!registering?'<button class="btn subtle" type="button" data-member="reset-password">Forgot password?</button>':'')+'</div></div><div class="card"><div class="cardhead"><h2>Member safety</h2><span class="tag">PRIVATE THREADS</span></div><p class="hint">Verified accounts can search usernames. A member must accept your request before you can message or call.</p><p class="hint">Messages use Firebase Authentication and the supplied Firestore rules once those rules are deployed. They are not end-to-end encrypted like WhatsApp. Never share your password or SMS code.</p><p class="hint">Offline member data is stored in this browser&#39;s persistent cache and may remain after sign-out. Use a trusted, private device.</p><p class="hint">Email and phone sign-ins may create separate accounts unless explicitly linked in Firebase.</p><p class="hint">Voice calls request microphone access only after you tap Call.</p><div class="button-row" style="margin-top:14px">'+setupLink+'</div></div></div>';
 }
 function profileHandle(){
-  if(!memberProfile)return '';
+  if(!memberProfile){const loading=!!memberStatus;return '<div class="card sfn-own-username" style="margin-bottom:14px" aria-live="polite"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+(loading?'Waiting for your username…':'Loading your username…')+'</strong></div><button class="btn small" type="button" disabled>Copy username</button></div><div class="hint">'+(loading?'See the status above for the account setup message.':'Your search code will appear here when your member profile finishes loading.')+'</div></div>';}
   return '<div class="card" style="margin-bottom:14px"><div class="cardhead"><div><div class="smalllabel">YOUR GENERATED USERNAME</div><strong style="display:block;margin-top:5px;font:700 16px var(--mono);color:var(--mint)">'+esc(memberProfile.handle)+'</strong></div><button class="btn small" data-member="copy-handle">Copy username</button></div><div class="button-row"><span class="hint">Share this username with people you trust.</span><button class="btn small subtle" data-member="sign-out">Sign out</button></div></div>';
 }
 function statusLabel(rel){
