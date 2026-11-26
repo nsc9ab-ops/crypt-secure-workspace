@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sfn-shell-v22';
+const CACHE_NAME = 'sfn-shell-v23';
 const APP_FILES = [
   './',
   './index.html',
