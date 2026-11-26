@@ -1,0 +1,165 @@
+/* Animated finish for the Scott.F.N member controls, calls and security status. */
+.shell main .top-tool-group {
+  border-color: #43e991 !important;
+  background: linear-gradient(145deg, #072116f2, #031109f5) !important;
+  box-shadow: 0 0 18px #16e77b28, inset 0 1px #a4ffd326 !important;
+}
+
+.shell main .top-actions .topicon {
+  border: 1px solid #2b7550 !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 30% 20%, #163e2b, #06150d 75%) !important;
+  box-shadow: inset 0 0 12px #23de7520, 0 0 9px #00ec781c;
+  transform-style: preserve-3d;
+  animation: sfn-control-turn 7.6s ease-in-out infinite;
+}
+
+.shell main .top-tool-group .topicon:nth-child(2) { animation-delay: .45s; }
+.shell main .top-tool-group .topicon:nth-child(3) { animation-delay: .9s; }
+.shell main .top-tool-group .topicon:nth-child(4) { animation-delay: 1.35s; }
+
+.shell main .top-actions .topicon:hover {
+  color: #f2fff7 !important;
+  border-color: #80ffc0 !important;
+  box-shadow: 0 0 18px #37f18b70, inset 0 0 12px #23de7540;
+}
+
+.shell main .top-actions .profile-dot {
+  box-shadow: 0 0 0 2px #2da96755, 0 0 15px #5ff2b366 !important;
+}
+
+.shell main .call-banner {
+  isolation: isolate;
+  border-color: #38e88b !important;
+  background: radial-gradient(ellipse at 4% 50%, #00e85d35, transparent 34%),
+    linear-gradient(115deg, #03180e, #062517 57%, #03150c) !important;
+  box-shadow: 0 0 26px #00ff6e38, inset 0 0 25px #00ff4a16 !important;
+  animation: sfn-call-lift 1.05s cubic-bezier(.2, .75, .2, 1) both,
+    sfn-call-aura 4.6s ease-in-out 1.1s infinite;
+}
+
+.shell main .call-banner::before {
+  position: absolute;
+  z-index: -1;
+  top: -80%;
+  left: -50%;
+  width: 35%;
+  height: 260%;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #56ffad24, #8effca55, #56ffad24, transparent);
+  transform: rotate(24deg);
+  animation: sfn-call-scan 5.8s ease-in-out infinite;
+}
+
+.shell main .call-banner > * { position: relative; z-index: 1; }
+
+.shell main .call-banner .call-orb {
+  border-color: #55ff9e !important;
+  background: radial-gradient(circle, #0e6737, #03160b 74%) !important;
+  box-shadow: 0 0 17px #00ff7890, inset 0 0 15px #43ff9e2c !important;
+  animation: sfn-orb-pulse 2.2s ease-in-out infinite;
+}
+
+.shell main .call-banner .call-orb svg { filter: drop-shadow(0 0 6px #8bffc2aa); }
+
+.shell main .call-banner .btn {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #a4ffd0 !important;
+  background: linear-gradient(110deg, #20d978, #79ffb0 45%, #37e98b 72%, #a1ffd0) !important;
+  background-size: 230% 100% !important;
+  color: #052316 !important;
+  box-shadow: 0 0 17px #33ef8b50, inset 0 1px #edfff477 !important;
+  animation: sfn-cta-sweep 3.2s ease-in-out infinite;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.shell main .call-banner .btn:hover {
+  transform: translateY(-2px) scale(1.025);
+  box-shadow: 0 0 28px #40f39999, inset 0 1px #edfff4 !important;
+}
+
+.shell main .overview-strip .system-secure {
+  border-color: #37df83 !important;
+  background: linear-gradient(120deg, #04190f, #0a2818 55%, #04180e) !important;
+  box-shadow: 0 0 16px #00ff4c35, inset 0 1px #bcffd01c !important;
+  animation: sfn-secure-halo 2.7s ease-in-out infinite;
+}
+
+.shell main .overview-strip .system-secure svg { filter: drop-shadow(0 0 5px #50f99b86); }
+
+.shell main .overview-strip .system-secure i {
+  animation: sfn-secure-pulse 1.35s ease-in-out infinite;
+}
+
+@keyframes sfn-control-turn {
+  0%, 70%, 100% { transform: perspective(420px) rotateY(0deg); }
+  82% { transform: perspective(420px) rotateY(180deg); }
+  94% { transform: perspective(420px) rotateY(360deg); }
+}
+
+@keyframes sfn-call-lift {
+  from { opacity: .35; transform: translateY(18px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes sfn-call-aura {
+  0%, 100% { box-shadow: 0 0 18px #00ff6e28, inset 0 0 18px #00ff4a10; }
+  50% { box-shadow: 0 0 32px #00ff6e5c, inset 0 0 28px #00ff4a22; }
+}
+
+@keyframes sfn-call-scan {
+  0%, 15% { left: -50%; opacity: 0; }
+  25% { opacity: 1; }
+  62% { left: 120%; opacity: .75; }
+  70%, 100% { left: 120%; opacity: 0; }
+}
+
+@keyframes sfn-orb-pulse {
+  0%, 100% { box-shadow: 0 0 13px #00ff7866, inset 0 0 10px #43ff9e1c; }
+  50% { box-shadow: 0 0 25px #00ff78c9, inset 0 0 20px #43ff9e45; }
+}
+
+@keyframes sfn-cta-sweep {
+  0%, 100% { background-position: 0% 50%; box-shadow: 0 0 14px #33ef8b3d, inset 0 1px #edfff477; }
+  50% { background-position: 100% 50%; box-shadow: 0 0 25px #33ef8b85, inset 0 1px #edfff4aa; }
+}
+
+@keyframes sfn-secure-halo {
+  0%, 100% { box-shadow: 0 0 10px #00ff4c22, inset 0 1px #bcffd014; }
+  50% { box-shadow: 0 0 22px #00ff4c58, inset 0 1px #bcffd033; }
+}
+
+@keyframes sfn-secure-pulse {
+  0%, 100% { transform: scale(.82); opacity: .75; }
+  50% { transform: scale(1.16); opacity: 1; }
+}
+
+@media (max-width: 760px) {
+  .shell main .call-banner::before { width: 42%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell main .top-actions .topicon,
+  .shell main .call-banner,
+  .shell main .call-banner::before,
+  .shell main .call-banner .call-orb,
+  .shell main .call-banner .btn,
+  .shell main .overview-strip .system-secure,
+  .shell main .overview-strip .system-secure i {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+body.reduce-motion .shell main .top-actions .topicon,
+body.reduce-motion .shell main .call-banner,
+body.reduce-motion .shell main .call-banner::before,
+body.reduce-motion .shell main .call-banner .call-orb,
+body.reduce-motion .shell main .call-banner .btn,
+body.reduce-motion .shell main .overview-strip .system-secure,
+body.reduce-motion .shell main .overview-strip .system-secure i {
+  animation: none !important;
+  transition: none !important;
+}
