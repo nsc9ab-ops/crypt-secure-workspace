@@ -2533,10 +2533,10 @@
                 showToast(`GPS LOCATION: ${c.name.toUpperCase()} COUNTY`, 'emerald');
             }
 
-            function requestLandscapeFullscreen() {
+            async function requestLandscapeFullscreen() {
                 const docEl = document.documentElement;
                 if (!document.fullscreenElement && docEl.requestFullscreen) {
-                    docEl.requestFullscreen().catch(() => {});
+                    try { await docEl.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
                 }
                 if (screen.orientation && screen.orientation.lock) {
                     screen.orientation.lock('landscape').catch(() => {});
@@ -2574,10 +2574,17 @@
                 applyRenderScale();
             }
 
+            function maintainLandscapeLock() {
+                if (document.fullscreenElement && screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            }
+
             return {
                 init, inputs, cycleCamera, cycleOrbitTarget, setWeather, setClarity,
                 selectCorridor, warpToCounty, requestLandscapeFullscreen,
-                toggleHeadlights, toggleAutopilot, recoverTruck, triggerHorn
+                toggleHeadlights, toggleAutopilot, recoverTruck, triggerHorn,
+                maintainLandscapeLock
             };
         })();
 
@@ -2601,16 +2608,22 @@
             let tiltNorm = 0;
             let gyroActive = false;
             let desktopTiltActive = false;
+            let orientationAngle = null;
+            let sensorPermission = 'unknown';
+
+            function setSteeringMode(mode) {
+                modeIdx = Math.max(0, MODES.indexOf(mode));
+                document.getElementById('steer-mode-label').textContent = mode;
+                document.getElementById('steer-mode-icon').textContent = mode === 'WHEEL' ? '☸️' : (mode === 'TILT' ? '📐' : '⌨️');
+                document.getElementById('ui-wheel-container').classList.toggle('hidden', mode !== 'WHEEL');
+                document.getElementById('ui-tilt-container').classList.toggle('hidden', mode !== 'TILT');
+                document.getElementById('ui-buttons-container').classList.toggle('hidden', mode !== 'KEYS');
+            }
 
             function cycleSteeringMode() {
                 modeIdx = (modeIdx + 1) % MODES.length;
                 const mode = MODES[modeIdx];
-                document.getElementById('steer-mode-label').textContent = mode;
-                document.getElementById('steer-mode-icon').textContent = mode === 'WHEEL' ? '☸️' : (mode === 'TILT' ? '📐' : '⌨️');
-
-                document.getElementById('ui-wheel-container').classList.toggle('hidden', mode !== 'WHEEL');
-                document.getElementById('ui-tilt-container').classList.toggle('hidden', mode !== 'TILT');
-                document.getElementById('ui-buttons-container').classList.toggle('hidden', mode !== 'KEYS');
+                setSteeringMode(mode);
 
                 if (mode === 'TILT') {
                     requestGyroPermission();
@@ -2676,14 +2689,20 @@
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     DeviceOrientationEvent.requestPermission()
                         .then(res => {
+                            sensorPermission = res;
                             if (res === 'granted') {
                                 enableDeviceOrientationListener();
                                 showToast('GYROSCOPE TILT SENSOR ACTIVE', 'emerald');
+                                document.getElementById('btn-enable-gyro').textContent = '✓ ACTIVE';
+                            } else {
+                                showToast('TILT PERMISSION DENIED', 'rose');
                             }
                         })
                         .catch(() => showToast('TILT PERMISSION DENIED', 'rose'));
                 } else {
+                    sensorPermission = 'granted';
                     enableDeviceOrientationListener();
+                    document.getElementById('btn-enable-gyro').textContent = '✓ ACTIVE';
                 }
             }
 
@@ -2694,9 +2713,14 @@
                     if (e.gamma === null || desktopTiltActive) return;
                     rawGamma = e.gamma;
                     rawBeta = e.beta || 0;
-                    // Handle landscape orientation tilt axis automatically
-                    const isLandscape = window.innerWidth > window.innerHeight;
-                    const tiltRaw = isLandscape ? rawBeta : rawGamma;
+                    // Map the physical roll axis to steering regardless of portrait/landscape rotation.
+                    const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
+                    if (orientationAngle !== null && orientationAngle !== angle) {
+                        zeroOffset = 0;
+                        tiltNorm = 0;
+                    }
+                    orientationAngle = angle;
+                    const tiltRaw = angle === 90 ? -rawBeta : (angle === 270 || angle === -90 ? rawBeta : (angle === 180 ? -rawGamma : rawGamma));
                     const calibrated = tiltRaw - zeroOffset;
                     tiltNorm = THREE.MathUtils.clamp((calibrated / 28) * sensitivity, -1, 1);
                     updateTiltDisplay(calibrated);
@@ -2736,8 +2760,8 @@
             }
 
             function calibrateTilt() {
-                const isLandscape = window.innerWidth > window.innerHeight;
-                zeroOffset = isLandscape ? rawBeta : rawGamma;
+                const angle = Number(screen.orientation?.angle ?? window.orientation ?? 0);
+                zeroOffset = angle === 90 ? -rawBeta : (angle === 270 || angle === -90 ? rawBeta : (angle === 180 ? -rawGamma : rawGamma));
                 tiltNorm = 0;
                 updateTiltDisplay(0);
                 showToast('TILT HORIZON ZEROED', 'emerald');
@@ -2839,6 +2863,20 @@
                 initRotaryWheel();
                 initDesktopTiltDrag();
                 initPedalsAndKeys();
+                // Tilt is the default mobile control. iOS requires the first user gesture
+                // for sensor permission, so retry on the first touch anywhere in the game.
+                setSteeringMode('TILT');
+                requestGyroPermission();
+                const activateMobile = () => {
+                    Sim.requestLandscapeFullscreen();
+                    if (!gyroActive) requestGyroPermission();
+                    Sim.maintainLandscapeLock();
+                };
+                document.addEventListener('pointerdown', activateMobile, { once: true, passive: true });
+                window.addEventListener('orientationchange', () => {
+                    orientationAngle = null;
+                    setTimeout(() => Sim.maintainLandscapeLock(), 120);
+                });
             }
 
             return { init, cycleSteeringMode, requestGyroPermission, calibrateTilt, getSteerNormalized, setSensitivity };
