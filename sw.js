@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sfn-shell-v37';
+const CACHE_NAME = 'sfn-shell-v38';
 const APP_FILES = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const APP_FILES = [
   './games/kenya-highway-pro.html',
   './games/kenya-highway-pro.css',
   './games/kenya-highway-pro.js',
+  './games/nexus-v-quantum-party-matrix.html',
   './games/neon-nexus.css',
   './assets/member-motion.css',
   './app-icon.svg',

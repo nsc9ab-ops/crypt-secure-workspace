@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NEXUS-V // 5th-Gen Quantum Word & Party Matrix</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Futuristic Typography: Orbitron, Rajdhani, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Orbitron', 'sans-serif'],
+                        sans: ['Rajdhani', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        nexus: {
+                            bg: '#04060d',
+                            panel: 'rgba(10, 16, 32, 0.72)',
+                            cyan: '#00f3ff',
+                            magenta: '#ff007f',
+                            violet: '#8b5cf6',
+                            emerald: '#10b981',
+                            amber: '#f59e0b'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2.5s infinite ease-in-out',
+                        'scanline': 'scanline 8s linear infinite',
+                        'float': 'float 4s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 12px rgba(0, 243, 255, 0.35), inset 0 0 8px rgba(0, 243, 255, 0.2)' },
+                            '50%': { boxShadow: '0 0 24px rgba(0, 243, 255, 0.7), inset 0 0 14px rgba(0, 243, 255, 0.4)' },
+                        },
+                        scanline: {
+                            '0%': { transform: 'translateY(-100%)' },
+                            '100%': { transform: 'translateY(100vh)' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-6px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Core Futuristic Holographic Styling */
+        :root {
+            --cyan: #00f3ff;
+            --magenta: #ff007f;
+            --violet: #8b5cf6;
+            --emerald: #10b981;
+            --bg-dark: #04060d;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        button, input, select, .grid-wrapper {
+            touch-action: manipulation;
+        }
+
+        button, .word-cell {
+            will-change: transform;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(0, 243, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(255, 0, 127, 0.08) 0%, transparent 40%);
+        }
+
+        /* Background Particle & Grid Canvas */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Subtle Holographic Scanline Overlay */
+        .holo-scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, rgba(0, 243, 255, 0.25), transparent);
+            z-index: 1;
+            pointer-events: none;
+            animation: scanline 7s linear infinite;
+        }
+
+        /* Glassmorphic Cyber Panel */
+        .cyber-panel {
+            background: rgba(9, 14, 28, 0.78);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(0, 243, 255, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 18px rgba(0, 243, 255, 0.06);
+        }
+
+        .cyber-panel-magenta {
+            background: rgba(18, 9, 26, 0.78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 0, 127, 0.32);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.65), inset 0 0 18px rgba(255, 0, 127, 0.08);
+        }
+
+        /* Futuristic Clipped Corners */
+        .clip-cyber {
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+        }
+
+        /* Neon Text Glows */
+        .text-glow-cyan {
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.7), 0 0 22px rgba(0, 243, 255, 0.4);
+        }
+        .text-glow-magenta {
+            text-shadow: 0 0 10px rgba(255, 0, 127, 0.7), 0 0 22px rgba(255, 0, 127, 0.4);
+        }
+        .text-glow-emerald {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.7), 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        /* Interactive Cyber Buttons */
+        .btn-cyber {
+            position: relative;
+            transition: all 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+            overflow: hidden;
+        }
+        .btn-cyber:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 18px rgba(0, 243, 255, 0.55);
+        }
+        .btn-cyber:active {
+            transform: scale(0.96);
+        }
+
+        /* Word Grid Cell Styles */
+        .grid-wrapper {
+            position: relative;
+            touch-action: none; /* Prevents scrolling while dragging on grid */
+        }
+
+        .word-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            border-radius: 6px;
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(0, 243, 255, 0.14);
+            color: #cbd5e1;
+            transition: transform 0.12s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+            cursor: pointer;
+            position: relative;
+            z-index: 2;
+        }
+
+        .word-cell:hover {
+            border-color: rgba(0, 243, 255, 0.55);
+            color: #ffffff;
+        }
+
+        .word-cell.selecting {
+            background: rgba(0, 243, 255, 0.32);
+            border-color: #00f3ff;
+            color: #ffffff;
+            transform: scale(1.08);
+            box-shadow: 0 0 14px rgba(0, 243, 255, 0.8);
+            z-index: 4;
+        }
+
+        .word-cell.found {
+            background: rgba(16, 185, 129, 0.26);
+            border-color: #10b981;
+            color: #6ee7b7;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+        }
+
+        .word-cell.found-nation {
+            background: rgba(139, 92, 246, 0.28);
+            border-color: #a78bfa;
+            color: #ddd6fe;
+            text-shadow: 0 0 8px rgba(139, 92, 246, 0.8);
+        }
+
+        .word-cell.hint-pulse {
+            animation: hintFlash 1.2s ease-in-out 3;
+            border-color: #f59e0b !important;
+            background: rgba(245, 158, 11, 0.38) !important;
+            color: #fef3c7 !important;
+        }
+
+        @keyframes hintFlash {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 5px #f59e0b; }
+            50% { transform: scale(1.18); box-shadow: 0 0 22px #f59e0b; }
+        }
+
+        /* 3D Flip Card for Truth or Dare */
+        .perspective-1000 {
+            perspective: 1200px;
+        }
+        .flip-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.75s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-style: preserve-3d;
+        }
+        .flip-card-inner.flipped {
+            transform: rotateY(180deg);
+        }
+        .flip-card-front, .flip-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 1rem;
+        }
+        .flip-card-back {
+            transform: rotateY(180deg);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(4, 6, 13, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.35);
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.65);
+        }
+
+        /* Responsive viewport fitting
+           Keep every mode usable on phones, tablets, and short landscape screens. */
+        html, body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            overflow-y: auto;
+            overscroll-behavior-x: none;
+        }
+
+        body > .relative {
+            width: 100%;
+            min-width: 0;
+        }
+
+        header, nav, section, section > *, header > *, .cyber-panel, .cyber-panel-magenta {
+            min-width: 0;
+        }
+
+        #ws-grid-wrapper, #nat-grid-wrapper {
+            width: min(100%, 540px);
+            max-width: 100%;
+        }
+
+        #ws-grid, #nat-grid {
+            min-width: 0;
+            min-height: 0;
+        }
+
+        #party-wheel-canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        @media (max-width: 767px) {
+            body > .relative {
+                padding-left: .75rem;
+                padding-right: .75rem;
+                padding-top: .75rem;
+                padding-bottom: 1rem;
+            }
+
+            header {
+                align-items: flex-start !important;
+                padding: .75rem !important;
+                margin-bottom: .75rem !important;
+            }
+
+            header > :last-child {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            header > :last-child > :first-child {
+                min-width: 0;
+                flex: 1 1 auto;
+            }
+
+            nav {
+                margin-bottom: .75rem !important;
+            }
+
+            nav .mode-tab {
+                min-width: 0;
+                overflow-wrap: anywhere;
+                padding: .6rem .35rem !important;
+            }
+
+            nav .mode-tab svg {
+                width: 1.1rem;
+                height: 1.1rem;
+            }
+
+            #view-word, #view-nations, #view-party,
+            #nations-grid-view {
+                display: flex;
+                flex-direction: column;
+                gap: .75rem;
+            }
+
+            #view-word > *, #view-party > *, #nations-grid-view > *,
+            #view-nations > * {
+                width: 100% !important;
+                max-width: 100%;
+                flex: none;
+            }
+
+            #view-word > :last-child,
+            #view-party > :last-child,
+            #nations-grid-view > :first-child {
+                min-height: 0;
+            }
+
+            #ws-grid-wrapper, #nat-grid-wrapper {
+                width: min(100%, calc(100vw - 2rem));
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .word-cell {
+                border-radius: 3px;
+                font-size: clamp(.55rem, 2.6vw, .9rem);
+            }
+
+            #nat-live-preview {
+                max-width: 42%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            #nations-grid-view > :first-child > :first-child {
+                gap: .35rem;
+            }
+
+            #nations-grid-view > :first-child > :first-child > * {
+                min-width: 0;
+            }
+
+            #nations-grid-view + #nations-cipher-view,
+            #nations-cipher-view {
+                padding: 1rem !important;
+            }
+
+            #nations-cipher-view input,
+            #nations-cipher-view button {
+                min-width: 0;
+            }
+
+            #nations-cipher-view .flex.gap-2 {
+                flex-wrap: wrap;
+            }
+
+            #nations-cipher-view .flex.gap-2 input {
+                flex-basis: 100%;
+            }
+
+            #nations-cipher-view .flex.gap-2 button {
+                width: 100%;
+            }
+
+            #party-wheel-canvas {
+                width: min(72vw, 18rem) !important;
+                height: min(72vw, 18rem) !important;
+            }
+
+            #view-party .perspective-1000 {
+                height: 15rem !important;
+            }
+
+            .flip-card-front, .flip-card-back {
+                overflow-y: auto;
+            }
+
+            .flip-card-front, .flip-card-back {
+                padding: 1rem !important;
+            }
+
+            .flip-card-front .flex.gap-4,
+            .flip-card-back .flex.gap-3 {
+                gap: .5rem;
+            }
+
+            .flip-card-front button,
+            .flip-card-back button {
+                min-width: 0;
+                overflow-wrap: anywhere;
+                padding-left: .5rem;
+                padding-right: .5rem;
+            }
+        }
+
+        @media (max-height: 620px) and (orientation: landscape) {
+            body > .relative {
+                padding-top: .5rem;
+                padding-bottom: .5rem;
+            }
+
+            header {
+                margin-bottom: .5rem !important;
+                padding-top: .5rem !important;
+                padding-bottom: .5rem !important;
+            }
+
+            nav {
+                margin-bottom: .5rem !important;
+            }
+
+            #party-wheel-canvas {
+                width: min(42vh, 16rem) !important;
+                height: min(42vh, 16rem) !important;
+            }
+
+            #view-party .perspective-1000 {
+                height: 13rem !important;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-cyan-500 selection:text-black">
+
+    <!-- Background Interactive Particle Physics Canvas -->
+    <canvas id="bg-canvas"></canvas>
+    <div class="holo-scanline"></div>
+
+    <!-- Custom Notification Toast Container (Replaces alert()) -->
+    <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2 pointer-events-none max-w-xs sm:max-w-sm"></div>
+
+    <!-- Main Application Shell -->
+    <div class="relative z-10 max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 flex flex-col min-h-screen">
+        
+        <!-- TOP HOLOGRAPHIC HUD BAR -->
+        <header class="cyber-panel rounded-2xl px-4 py-3 mb-5 flex flex-wrap items-center justify-between gap-3">
+            <!-- Brand & 5th-Gen Core Status -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-600 to-fuchsia-600 p-[2px] animate-pulse-glow shrink-0">
+                    <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                        <svg class="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+                            <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+                            <line x1="12" y1="2" x2="12" y2="9"></line>
+                            <line x1="22" y1="15.5" x2="14.6" y2="13.5"></line>
+                            <line x1="2" y1="15.5" x2="9.4" y2="13.5"></line>
+                        </svg>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-display font-black text-lg sm:text-2xl tracking-wider bg-gradient-to-r from-cyan-300 via-white to-fuchsia-400 bg-clip-text text-transparent">
+                            NEXUS-V
+                        </h1>
+                        <span class="text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-400/30">
+                            GEN-5 OS
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400 font-mono tracking-wide hidden sm:block">QUANTUM WORD & PARTY MATRIX</p>
+                </div>
+            </div>
+
+            <!-- Persistent Rank & XP Telemetry -->
+            <div class="flex items-center gap-3 sm:gap-5 flex-1 justify-end">
+                <div class="flex flex-col items-end min-w-[130px] sm:min-w-[180px]">
+                    <div class="flex items-center gap-2 text-xs sm:text-sm font-bold">
+                        <span class="text-cyan-400 font-mono" id="hud-rank">CADET</span>
+                        <span class="text-slate-500">|</span>
+                        <span class="text-amber-400 font-mono"><span id="hud-xp">0</span> XP</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-cyan-500/30 mt-1">
+                        <div id="hud-xp-bar" class="h-full bg-gradient-to-r from-cyan-400 via-violet-500 to-fuchsia-500 transition-all duration-500" style="width: 10%"></div>
+                    </div>
+                </div>
+
+                <!-- Web Audio Synthesizer Toggle -->
+                <button id="audio-toggle-btn" onclick="AudioEngine.toggleMute()" title="Toggle Quantum Synth Audio"
+                    class="btn-cyber p-2.5 rounded-xl bg-slate-900/90 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/20 flex items-center gap-1.5">
+                    <svg id="icon-sound-on" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                    </svg>
+                    <svg id="icon-sound-off" class="w-5 h-5 hidden text-rose-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <line x1="23" y1="9" x2="17" y2="15"></line>
+                        <line x1="17" y1="9" x2="23" y2="15"></line>
+                    </svg>
+                    <span class="text-xs font-mono hidden md:inline" id="audio-status-label">SYNTH ON</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- NAVIGATION MODE SELECTOR TABS -->
+        <nav class="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+            <button onclick="switchMode('word')" id="tab-word"
+                class="mode-tab btn-cyber cyber-panel rounded-xl p-2.5 sm:p-3.5 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 border-cyan-400 bg-cyan-500/15 text-cyan-300">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                </svg>
+                <div class="text-center sm:text-left">
+                    <div class="font-display font-bold text-xs sm:text-sm tracking-wider">QUANTUM GRID</div>
+                    <div class="text-[10px] text-slate-400 font-mono hidden md:block">WORD MATRIX SCANNER</div>
+                </div>
+            </button>
+
+            <button onclick="switchMode('nations')" id="tab-nations"
+                class="mode-tab btn-cyber cyber-panel rounded-xl p-2.5 sm:p-3.5 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 text-slate-400 hover:text-violet-300">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="2" y1="12" x2="22" y2="12"></line>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <div class="text-center sm:text-left">
+                    <div class="font-display font-bold text-xs sm:text-sm tracking-wider">FIND NATIONAL</div>
+                    <div class="text-[10px] text-slate-400 font-mono hidden md:block">GLOBAL NATIONS DECODER</div>
+                </div>
+            </button>
+
+            <button onclick="switchMode('party')" id="tab-party"
+                class="mode-tab btn-cyber cyber-panel rounded-xl p-2.5 sm:p-3.5 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-3 text-slate-400 hover:text-fuchsia-300">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                <div class="text-center sm:text-left">
+                    <div class="font-display font-bold text-xs sm:text-sm tracking-wider">TRUTH & DARE</div>
+                    <div class="text-[10px] text-slate-400 font-mono hidden md:block">HOLO-PARTY REACTOR</div>
+                </div>
+            </button>
+        </nav>
+
+        <!-- ===================================================================== -->
+        <!-- MODE 1: QUANTUM WORD SEARCH (CORE MODE)                               -->
+        <!-- ===================================================================== -->
+        <section id="view-word" class="flex-1 flex flex-col lg:flex-row gap-5">
+            <!-- Left / Top Control & Telemetry Panel -->
+            <div class="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+                <div class="cyber-panel rounded-2xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-widest">// MATRIX PARAMETERS</span>
+                        <span id="ws-combo-badge" class="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-400/40">
+                            1.0x COMBO
+                        </span>
+                    </div>
+
+                    <!-- Category Selector -->
+                    <label class="block text-xs font-mono text-slate-400 mb-1">SECTOR DATABASE</label>
+                    <select id="ws-category" onchange="WordGame.init()"
+                        class="w-full bg-slate-900/90 border border-cyan-500/40 rounded-xl px-3 py-2 text-sm text-cyan-100 font-semibold focus:outline-none focus:border-cyan-400 mb-3">
+                        <option value="cyberpunk">⚡ Cyberpunk & AI Tech</option>
+                        <option value="cosmos">🌌 Space & Deep Cosmos</option>
+                        <option value="quantum">⚛️ Quantum Physics</option>
+                        <option value="architecture">🏛️ Future Architecture</option>
+                        <option value="nations">🌍 Sovereign Nations</option>
+                    </select>
+
+                    <!-- Grid Size Selector -->
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button onclick="WordGame.setSize(12)" id="btn-size-12"
+                            class="py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-cyan-400 bg-cyan-500/20 text-cyan-300">
+                            12x12 GRID
+                        </button>
+                        <button onclick="WordGame.setSize(14)" id="btn-size-14"
+                            class="py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-slate-700 bg-slate-900/70 text-slate-400">
+                            14x14 GRID
+                        </button>
+                    </div>
+
+                    <!-- Live Timer & Score -->
+                    <div class="grid grid-cols-2 gap-2 p-3 rounded-xl bg-slate-950/70 border border-slate-800 mb-3">
+                        <div>
+                            <div class="text-[10px] font-mono text-slate-400">QUANTUM CLOCK</div>
+                            <div id="ws-timer" class="font-display font-bold text-xl text-cyan-300">03:00</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] font-mono text-slate-400">MATRIX SCORE</div>
+                            <div id="ws-score" class="font-display font-bold text-xl text-emerald-400">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-2">
+                        <button onclick="WordGame.useHint()"
+                            class="btn-cyber flex-1 py-2.5 px-3 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-300 font-display font-bold text-xs tracking-wider flex items-center justify-center gap-1.5">
+                            <span>🔍</span> SCAN HINT
+                        </button>
+                        <button onclick="WordGame.init()"
+                            class="btn-cyber py-2.5 px-3 rounded-xl bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 font-display font-bold text-xs tracking-wider">
+                            ↻ NEW
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Target Words List -->
+                <div class="cyber-panel rounded-2xl p-4 flex-1">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-widest">// TARGET SIGNATURES</span>
+                        <span id="ws-progress" class="text-xs font-mono text-emerald-400 font-bold">0 / 10</span>
+                    </div>
+                    <div id="ws-word-list" class="flex flex-wrap lg:grid lg:grid-cols-2 gap-2">
+                        <!-- Dynamically populated word tags -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Interactive Laser Word Grid -->
+            <div class="flex-1 cyber-panel rounded-2xl p-3 sm:p-6 flex flex-col items-center justify-center relative">
+                <!-- Live Selection Preview Pill -->
+                <div class="mb-3 h-9 flex items-center justify-center">
+                    <div id="ws-live-preview"
+                        class="px-5 py-1 rounded-full bg-slate-900/90 border border-cyan-400/40 font-mono font-bold text-sm sm:text-base tracking-[0.25em] text-cyan-300 min-w-[160px] text-center shadow-lg">
+                        DRAG TO SCAN
+                    </div>
+                </div>
+
+                <!-- Grid + SVG Laser Overlay Container -->
+                <div id="ws-grid-wrapper" class="grid-wrapper w-full max-w-[540px] aspect-square relative select-none">
+                    <svg id="ws-laser-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+                    <div id="ws-grid" class="w-full h-full grid gap-1 sm:gap-1.5">
+                        <!-- Dynamic cells -->
+                    </div>
+                </div>
+
+                <p class="mt-3 text-xs font-mono text-slate-400 text-center">
+                    DRAG ACROSS LETTERS HORIZONTALLY, VERTICALLY, DIAGONALLY OR IN REVERSE
+                </p>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- MODE 2: GLOBAL NATIONS DECODER (FIND NATIONAL MODE)                   -->
+        <!-- ===================================================================== -->
+        <section id="view-nations" class="hidden flex-1 flex flex-col gap-5">
+            <!-- Sub-mode Switcher Header -->
+            <div class="cyber-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                    <h2 class="font-display font-bold text-lg sm:text-xl text-violet-300 text-glow-cyan">
+                        GLOBAL NATIONS DECODER // GEOPOLITICAL MATRIX
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-400">Locate sovereign nations on the orbital grid or decrypt scrambled national intel ciphers.</p>
+                </div>
+
+                <div class="flex rounded-xl bg-slate-950/80 p-1 border border-violet-500/30">
+                    <button onclick="NationsGame.switchSubMode('grid')" id="nat-sub-grid"
+                        class="px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider bg-violet-600 text-white shadow-lg transition">
+                        🌐 NATIONS GRID MATRIX
+                    </button>
+                    <button onclick="NationsGame.switchSubMode('cipher')" id="nat-sub-cipher"
+                        class="px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider text-slate-400 hover:text-white transition">
+                        🔐 GEO-CIPHER SCRAMBLE
+                    </button>
+                </div>
+            </div>
+
+            <!-- SUB-MODE A: NATIONS GRID MATRIX -->
+            <div id="nations-grid-view" class="flex flex-col lg:flex-row gap-5">
+                <!-- Left Grid Arena -->
+                <div class="flex-1 cyber-panel rounded-2xl p-4 sm:p-6 flex flex-col items-center justify-center">
+                    <div class="w-full max-w-[520px] flex items-center justify-between mb-3">
+                        <span class="text-xs font-mono text-violet-300">ORBITAL SCANNER [12x12]</span>
+                        <div id="nat-live-preview" class="px-4 py-1 rounded-full bg-slate-900 border border-violet-400/40 font-mono font-bold text-xs sm:text-sm tracking-widest text-violet-300">
+                            SELECT NATION
+                        </div>
+                        <button onclick="NationsGame.initGrid()" class="text-xs font-mono px-3 py-1 rounded-lg bg-violet-500/20 border border-violet-400/40 text-violet-200 hover:bg-violet-500/30">
+                            ↻ REFRESH
+                        </button>
+                    </div>
+
+                    <div id="nat-grid-wrapper" class="grid-wrapper w-full max-w-[520px] aspect-square relative">
+                        <svg id="nat-laser-svg" class="absolute inset-0 w-full h-full pointer-events-none z-10"></svg>
+                        <div id="nat-grid" class="w-full h-full grid grid-cols-12 gap-1 sm:gap-1.5"></div>
+                    </div>
+                </div>
+
+                <!-- Right Intel Dossier & Discovered Nation Cards -->
+                <div class="w-full lg:w-96 flex flex-col gap-4">
+                    <!-- Target Nations List -->
+                    <div class="cyber-panel rounded-2xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-mono text-violet-400">// UNIDENTIFIED TERRITORIES</span>
+                            <span id="nat-progress" class="text-xs font-mono text-emerald-400 font-bold">0 / 8</span>
+                        </div>
+                        <div id="nat-target-list" class="grid grid-cols-2 gap-2"></div>
+                    </div>
+
+                    <!-- Live Cyber-Intel Dossier Card -->
+                    <div class="cyber-panel rounded-2xl p-5 flex-1 flex flex-col justify-between border-violet-400/40">
+                        <div>
+                            <div class="text-xs font-mono text-cyan-400 mb-2">// DECRYPTED CYBER-INTEL DOSSIER</div>
+                            <div id="nat-intel-card" class="p-4 rounded-xl bg-slate-950/80 border border-violet-500/30">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <span id="intel-flag" class="text-4xl">🛰️</span>
+                                    <div>
+                                        <h3 id="intel-name" class="font-display font-bold text-lg text-white">AWAITING DISCOVERY</h3>
+                                        <span id="intel-region" class="text-xs font-mono px-2 py-0.5 rounded bg-violet-500/20 text-violet-300">ORBITAL SAT-LINK</span>
+                                    </div>
+                                </div>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between border-b border-slate-800 pb-1">
+                                        <span class="text-slate-400 font-mono text-xs">CAPITAL CITY:</span>
+                                        <span id="intel-capital" class="text-cyan-300 font-bold">---</span>
+                                    </div>
+                                    <p id="intel-fact" class="text-slate-300 text-xs sm:text-sm leading-relaxed pt-1">
+                                        Highlight any sovereign nation on the matrix grid to unlock its geopolitical intel dossier and earn +120 XP.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB-MODE B: GEO-CIPHER SCRAMBLE -->
+            <div id="nations-cipher-view" class="hidden cyber-panel rounded-2xl p-5 sm:p-8 max-w-3xl mx-auto w-full">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-800">
+                    <div>
+                        <span class="text-xs font-mono text-violet-400">ENCRYPTED SATELLITE TRANSMISSION</span>
+                        <h3 class="font-display font-bold text-xl text-white">DECRYPT THE NATION & CAPITAL</h3>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="text-right">
+                            <div class="text-[10px] font-mono text-slate-400">STREAK</div>
+                            <div id="cipher-streak" class="font-display font-bold text-lg text-amber-400">0 🔥</div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-[10px] font-mono text-slate-400">CLOCK</div>
+                            <div id="cipher-timer" class="font-display font-bold text-lg text-cyan-300">30s</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scrambled Letters Display -->
+                <div class="text-center mb-6">
+                    <div class="inline-block px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 text-xs font-mono text-violet-300 mb-3" id="cipher-hint-region">
+                        REGION: GLOBAL
+                    </div>
+                    <div id="cipher-scrambled-boxes" class="flex flex-wrap justify-center gap-2 my-3">
+                        <!-- Scrambled character tiles -->
+                    </div>
+                </div>
+
+                <!-- Step 1: Unscramble Nation Name -->
+                <div class="mb-5">
+                    <label class="block text-xs font-mono text-cyan-400 mb-1.5">1. ENTER DECRYPTED NATION NAME:</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="cipher-input" placeholder="Type nation name..." autocomplete="off"
+                            class="flex-1 bg-slate-950/90 border border-cyan-500/40 rounded-xl px-4 py-3 font-display font-bold text-white uppercase tracking-widest focus:outline-none focus:border-cyan-400">
+                        <button onclick="NationsGame.checkCipher()"
+                            class="btn-cyber px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 text-white font-display font-bold text-sm tracking-wider">
+                            DECRYPT
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Identify Capital Multiple Choice -->
+                <div>
+                    <label class="block text-xs font-mono text-fuchsia-400 mb-2">2. VERIFY CAPITAL CITY FOR +100 BONUS XP:</label>
+                    <div id="cipher-capital-options" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <!-- 4 Capital Choices -->
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-between items-center pt-4 border-t border-slate-800/80">
+                    <button onclick="NationsGame.nextCipher(true)" class="text-xs font-mono text-slate-400 hover:text-rose-400">
+                        SKIP TRANSMISSION (-10 XP) →
+                    </button>
+                    <span id="cipher-feedback" class="text-xs font-mono font-bold text-emerald-400"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===================================================================== -->
+        <!-- MODE 3: HOLO-TRUTH OR DARE (PARTY MATRIX MODE)                        -->
+        <!-- ===================================================================== -->
+        <section id="view-party" class="hidden flex-1 flex flex-col lg:flex-row gap-5">
+            <!-- Left Panel: Party Roster & Intensity Config -->
+            <div class="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+                <div class="cyber-panel-magenta rounded-2xl p-4">
+                    <span class="text-xs font-mono text-fuchsia-400 uppercase tracking-widest">// PARTY ROSTER</span>
+                    
+                    <!-- Add Player Form -->
+                    <div class="flex gap-2 mt-2 mb-3">
+                        <input type="text" id="party-player-input" maxlength="16" placeholder="Agent Name..."
+                            onkeydown="if(event.key==='Enter') PartyGame.addPlayer()"
+                            class="flex-1 bg-slate-950/90 border border-fuchsia-500/40 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-fuchsia-400">
+                        <button onclick="PartyGame.addPlayer()"
+                            class="btn-cyber px-3.5 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-display font-bold text-sm">
+                            +
+                        </button>
+                    </div>
+
+                    <!-- Active Players Leaderboard -->
+                    <div id="party-roster-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        <!-- Player items with avatar, score, delete button -->
+                    </div>
+                </div>
+
+                <!-- Intensity Tier Selector -->
+                <div class="cyber-panel-magenta rounded-2xl p-4">
+                    <span class="text-xs font-mono text-fuchsia-400 uppercase tracking-widest block mb-2">// QUANTUM INTENSITY TIER</span>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="PartyGame.setTier('chill')" id="tier-chill"
+                            class="tier-btn py-2.5 px-3 rounded-xl border border-cyan-400 bg-cyan-500/20 text-cyan-200 font-display font-bold text-xs text-left flex items-center justify-between">
+                            <span>🧊 CHILL / SOCIAL</span>
+                            <span class="text-[10px] font-mono">1.0x XP</span>
+                        </button>
+                        <button onclick="PartyGame.setTier('bold')" id="tier-bold"
+                            class="tier-btn py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900/70 text-slate-400 font-display font-bold text-xs text-left flex items-center justify-between">
+                            <span>🔥 BOLD / PARTY</span>
+                            <span class="text-[10px] font-mono">1.5x XP</span>
+                        </button>
+                        <button onclick="PartyGame.setTier('extreme')" id="tier-extreme"
+                            class="tier-btn py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900/70 text-slate-400 font-display font-bold text-xs text-left flex items-center justify-between">
+                            <span>☢️ EXTREME / QUANTUM</span>
+                            <span class="text-[10px] font-mono">2.5x XP</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Arena: 3D Holographic Reactor Wheel & 3D Flip Prompt Card -->
+            <div class="flex-1 cyber-panel-magenta rounded-2xl p-4 sm:p-6 flex flex-col items-center justify-between gap-6">
+                
+                <!-- Top: 3D Holographic Reactor Spinner -->
+                <div class="w-full flex flex-col items-center">
+                    <div class="text-xs font-mono text-fuchsia-300 tracking-widest mb-3">HOLOGRAPHIC TARGET REACTOR</div>
+                    
+                    <div class="relative w-64 h-64 sm:w-72 sm:h-72 flex items-center justify-center">
+                        <!-- Top Pointer Indicator -->
+                        <div class="absolute -top-3 z-20 text-cyan-400 drop-shadow-[0_0_10px_#00f3ff]">
+                            <svg class="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="12 21 3 5 21 5"></polygon>
+                            </svg>
+                        </div>
+
+                        <!-- Rotating Canvas Wheel -->
+                        <canvas id="party-wheel-canvas" width="300" height="300" class="w-full h-full rounded-full shadow-[0_0_35px_rgba(255,0,127,0.35)]"></canvas>
+
+                        <!-- Center Spin Core Button -->
+                        <button id="party-spin-btn" onclick="PartyGame.spinWheel()"
+                            class="absolute z-20 w-20 h-20 rounded-full bg-slate-950 border-2 border-cyan-400 shadow-[0_0_20px_rgba(0,243,255,0.7)] flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition cursor-pointer">
+                            <span class="font-display font-black text-xs text-cyan-300 tracking-wider">SPIN</span>
+                            <span class="text-[9px] font-mono text-fuchsia-400">CORE</span>
+                        </button>
+                    </div>
+
+                    <!-- Selected Player Banner -->
+                    <div id="party-selected-banner" class="mt-4 px-5 py-2 rounded-full bg-slate-950/90 border border-fuchsia-500/40 text-center">
+                        <span class="text-xs font-mono text-slate-400">ACTIVE TARGET: </span>
+                        <span id="party-active-name" class="font-display font-bold text-sm sm:text-base text-fuchsia-300">SPIN REACTOR TO SELECT</span>
+                    </div>
+                </div>
+
+                <!-- Bottom: 3D Flip Card for Truth or Dare -->
+                <div class="w-full max-w-xl h-64 sm:h-60 perspective-1000">
+                    <div id="party-flip-card" class="flip-card-inner">
+                        <!-- Card Front: Choose Truth or Dare -->
+                        <div class="flip-card-front cyber-panel p-6 flex flex-col items-center justify-center text-center border-fuchsia-500/40">
+                            <div class="text-xs font-mono text-cyan-400 mb-2">// PROTOCOL SELECTION</div>
+                            <h3 class="font-display font-bold text-lg sm:text-xl text-white mb-5">
+                                CHOOSE YOUR QUANTUM CHALLENGE
+                            </h3>
+                            <div class="flex gap-4 w-full max-w-sm">
+                                <button onclick="PartyGame.drawCard('truth')"
+                                    class="btn-cyber flex-1 py-3.5 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 border border-cyan-400 text-cyan-200 font-display font-black tracking-wider text-sm sm:text-base">
+                                    💠 TRUTH
+                                </button>
+                                <button onclick="PartyGame.drawCard('dare')"
+                                    class="btn-cyber flex-1 py-3.5 rounded-xl bg-gradient-to-br from-fuchsia-500/30 to-rose-600/30 border border-fuchsia-400 text-fuchsia-200 font-display font-black tracking-wider text-sm sm:text-base">
+                                    ⚡ DARE
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Card Back: Revealed Challenge & Completion Controls -->
+                        <div class="flip-card-back cyber-panel-magenta p-5 sm:p-6 flex flex-col justify-between border-cyan-400/50 bg-slate-950/95">
+                            <div class="flex items-center justify-between">
+                                <span id="card-badge-type" class="px-3 py-0.5 rounded-full text-xs font-display font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
+                                    TRUTH
+                                </span>
+                                <span id="card-badge-player" class="text-xs font-mono text-fuchsia-300 font-bold">
+                                    AGENT
+                                </span>
+                            </div>
+
+                            <p id="card-prompt-text" class="font-sans font-semibold text-base sm:text-xl text-white text-center my-auto px-2 leading-snug">
+                                Challenge prompt loads here...
+                            </p>
+
+                            <div class="flex gap-3">
+                                <button onclick="PartyGame.resolveCard(true)"
+                                    class="btn-cyber flex-1 py-2.5 rounded-xl bg-emerald-500/25 border border-emerald-400 text-emerald-300 font-display font-bold text-xs sm:text-sm">
+                                    ✓ COMPLETED (+XP)
+                                </button>
+                                <button onclick="PartyGame.resolveCard(false)"
+                                    class="btn-cyber flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-400/50 text-rose-300 font-display font-bold text-xs sm:text-sm">
+                                    ✕ CHICKEN OUT (-XP)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- JAVASCRIPT: 5TH-GEN QUANTUM ENGINE (AUDIO, PARTICLES, XP & GAME MODES)    -->
+    <!-- ========================================================================= -->
+    <script>
+        /**
+         * 1. PROCEDURAL WEB AUDIO API SYNTHESIZER ENGINE
+         * Generates zero-dependency futuristic cyber sound effects & harmonic chords.
+         */
+        const AudioEngine = (() => {
+            let ctx = null;
+            let muted = false;
+
+            function init() {
+                if (!ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    ctx = new AudioCtx();
+                }
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+            }
+
+            function toggleMute() {
+                muted = !muted;
+                document.getElementById('icon-sound-on').classList.toggle('hidden', muted);
+                document.getElementById('icon-sound-off').classList.toggle('hidden', !muted);
+                document.getElementById('audio-status-label').textContent = muted ? 'MUTED' : 'SYNTH ON';
+                if (!muted) {
+                    init();
+                    playClick(660);
+                }
+            }
+
+            function playTone(freq, type = 'sine', duration = 0.12, vol = 0.12, slideTo = null) {
+                if (muted) return;
+                try {
+                    init();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    if (slideTo) {
+                        osc.frequency.exponentialRampToValueAtTime(slideTo, ctx.currentTime + duration);
+                    }
+                    gain.gain.setValueAtTime(vol, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + duration);
+                } catch (e) { /* Ignore autoplay restriction until user gesture */ }
+            }
+
+            function playClick(freq = 520) {
+                playTone(freq, 'triangle', 0.07, 0.1, freq * 1.3);
+            }
+
+            function playCellStep(stepIndex) {
+                // Ascending pentatonic laser hum as user drags across letters
+                const scale = [330, 392, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5];
+                const note = scale[stepIndex % scale.length];
+                playTone(note, 'sine', 0.09, 0.09, note * 1.04);
+            }
+
+            function playWordFound() {
+                // Futuristic harmonic triad arpeggio
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((n, idx) => {
+                    setTimeout(() => playTone(n, 'triangle', 0.28, 0.14), idx * 65);
+                });
+            }
+
+            function playError() {
+                playTone(190, 'sawtooth', 0.22, 0.11, 110);
+            }
+
+            function playSpinTick(pitch = 420) {
+                playTone(pitch, 'square', 0.04, 0.06);
+            }
+
+            function playFanfare() {
+                const chord = [440, 554.37, 659.25, 880, 1108.73];
+                chord.forEach((n, i) => {
+                    setTimeout(() => playTone(n, 'sine', 0.45, 0.13), i * 80);
+                });
+            }
+
+            return { toggleMute, playClick, playCellStep, playWordFound, playError, playSpinTick, playFanfare };
+        })();
+
+        /**
+         * 2. PERSISTENT RANK & XP SYSTEM + TOAST NOTIFICATIONS
+         */
+        const PlayerProfile = (() => {
+            let xp = parseInt(localStorage.getItem('nexus_v_xp') || '0', 10);
+
+            const RANKS = [
+                { name: 'CADET', min: 0 },
+                { name: 'CYBER SCOUT', min: 300 },
+                { name: 'NEURAL HACKER', min: 800 },
+                { name: 'QUANTUM AGENT', min: 1600 },
+                { name: 'VOID COMMANDER', min: 3000 },
+                { name: '5TH-GEN GRAND ARCHITECT', min: 5000 }
+            ];
+
+            function getRankInfo(currentXp) {
+                let current = RANKS[0];
+                let next = RANKS[RANKS.length - 1];
+                for (let i = 0; i < RANKS.length; i++) {
+                    if (currentXp >= RANKS[i].min) {
+                        current = RANKS[i];
+                        next = RANKS[i + 1] || { name: 'MAX', min: current.min + 2000 };
+                    }
+                }
+                const pct = Math.min(100, Math.max(8, ((currentXp - current.min) / (next.min - current.min)) * 100));
+                return { rank: current.name, pct };
+            }
+
+            function addXP(amount, reason = '') {
+                const prevRank = getRankInfo(xp).rank;
+                xp = Math.max(0, xp + amount);
+                localStorage.setItem('nexus_v_xp', xp.toString());
+                updateHUD();
+
+                const newRank = getRankInfo(xp).rank;
+                if (amount > 0) {
+                    showToast(`+${amount} XP ${reason ? '• ' + reason : ''}`, 'cyan');
+                }
+                if (newRank !== prevRank && amount > 0) {
+                    AudioEngine.playFanfare();
+                    showToast(`RANK PROMOTION: ${newRank}!`, 'amber');
+                }
+            }
+
+            function updateHUD() {
+                const info = getRankInfo(xp);
+                document.getElementById('hud-xp').textContent = xp.toLocaleString();
+                document.getElementById('hud-rank').textContent = info.rank;
+                document.getElementById('hud-xp-bar').style.width = `${info.pct}%`;
+            }
+
+            return { addXP, updateHUD };
+        })();
+
+        function showToast(message, color = 'cyan') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const colorMap = {
+                cyan: 'border-cyan-400 text-cyan-200 bg-slate-950/90 shadow-[0_0_15px_rgba(0,243,255,0.35)]',
+                emerald: 'border-emerald-400 text-emerald-200 bg-slate-950/90 shadow-[0_0_15px_rgba(16,185,129,0.35)]',
+                amber: 'border-amber-400 text-amber-200 bg-slate-950/90 shadow-[0_0_15px_rgba(245,158,11,0.4)]',
+                rose: 'border-rose-400 text-rose-200 bg-slate-950/90 shadow-[0_0_15px_rgba(244,63,94,0.35)]'
+            };
+            el.className = `px-4 py-2.5 rounded-xl border font-mono text-xs font-bold backdrop-blur-md transition-all duration-300 transform translate-x-0 ${colorMap[color] || colorMap.cyan}`;
+            el.textContent = message;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(20px)';
+                setTimeout(() => el.remove(), 300);
+            }, 2600);
+        }
+
+        /**
+         * 3. INTERACTIVE PARTICLE PHYSICS CANVAS BACKGROUND + BURST FX
+         */
+        const ParticleFX = (() => {
+            const canvas = document.getElementById('bg-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let bursts = [];
+            let viewWidth = window.innerWidth;
+            let viewHeight = window.innerHeight;
+            let lastFrame = 0;
+
+            function resize() {
+                viewWidth = window.innerWidth;
+                viewHeight = window.innerHeight;
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                canvas.width = Math.floor(viewWidth * dpr);
+                canvas.height = Math.floor(viewHeight * dpr);
+                canvas.style.width = `${viewWidth}px`;
+                canvas.style.height = `${viewHeight}px`;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Ambient neural network nodes
+            for (let i = 0; i < 48; i++) {
+                particles.push({
+                    x: Math.random() * viewWidth,
+                    y: Math.random() * viewHeight,
+                    vx: (Math.random() - 0.5) * 0.45,
+                    vy: (Math.random() - 0.5) * 0.45,
+                    r: Math.random() * 2 + 1,
+                    color: Math.random() > 0.5 ? '#00f3ff' : '#ff007f'
+                });
+            }
+
+            function spawnBurst(x, y, color = '#00f3ff', count = 26) {
+                for (let i = 0; i < count; i++) {
+                    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+                    const speed = Math.random() * 5 + 2;
+                    bursts.push({
+                        x, y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        life: 1.0,
+                        decay: Math.random() * 0.03 + 0.02,
+                        color,
+                        size: Math.random() * 3.5 + 1.5
+                    });
+                }
+            }
+
+            function loop(now = performance.now()) {
+                const delta = lastFrame ? Math.min((now - lastFrame) / 16.667, 2) : 1;
+                lastFrame = now;
+                ctx.clearRect(0, 0, viewWidth, viewHeight);
+
+                // Draw subtle cyber perspective grid lines
+                ctx.strokeStyle = 'rgba(0, 243, 255, 0.03)';
+                ctx.lineWidth = 1;
+                const step = 60;
+                for (let x = 0; x < viewWidth; x += step) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, viewHeight); ctx.stroke();
+                }
+                for (let y = 0; y < viewHeight; y += step) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(viewWidth, y); ctx.stroke();
+                }
+
+                // Update & connect ambient nodes
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx * delta;
+                    p.y += p.vy * delta;
+                    if (p.x < 0 || p.x > viewWidth) p.vx *= -1;
+                    if (p.y < 0 || p.y > viewHeight) p.vy *= -1;
+
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = 0.45;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+                        if (dist < 130) {
+                            ctx.strokeStyle = '#00f3ff';
+                            ctx.globalAlpha = (1 - dist / 130) * 0.12;
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // Update particle bursts
+                for (let i = bursts.length - 1; i >= 0; i--) {
+                    const b = bursts[i];
+                    b.x += b.vx * delta;
+                    b.y += b.vy * delta;
+                    b.vx *= Math.pow(0.96, delta);
+                    b.vy *= Math.pow(0.96, delta);
+                    b.life -= b.decay * delta;
+                    if (b.life <= 0) {
+                        bursts.splice(i, 1);
+                        continue;
+                    }
+                    ctx.globalAlpha = b.life;
+                    ctx.fillStyle = b.color;
+                    ctx.beginPath();
+                    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.globalAlpha = 1;
+                requestAnimationFrame(loop);
+            }
+
+            return { loop, spawnBurst };
+        })();
+
+        /**
+         * 4. NAVIGATION HUB CONTROLLER
+         */
+        function switchMode(mode) {
+            AudioEngine.playClick(600);
+            ['word', 'nations', 'party'].forEach(m => {
+                document.getElementById(`view-${m}`).classList.toggle('hidden', m !== mode);
+                const tab = document.getElementById(`tab-${m}`);
+                if (m === mode) {
+                    tab.classList.add('border-cyan-400', 'bg-cyan-500/15', 'text-cyan-300');
+                    tab.classList.remove('text-slate-400');
+                } else {
+                    tab.classList.remove('border-cyan-400', 'bg-cyan-500/15', 'text-cyan-300');
+                    tab.classList.add('text-slate-400');
+                }
+            });
+            if (mode === 'party') {
+                PartyGame.drawWheel();
+            }
+        }
+
+        /**
+         * 5. PROCEDURAL WORD MATRIX GENERATOR & LASER DRAG ENGINE
+         * Shared by both Mode 1 (Quantum Word Search) and Mode 2A (Nations Grid Matrix).
+         */
+        function generateWordGrid(size, wordList) {
+            const grid = Array.from({ length: size }, () => Array(size).fill(''));
+            const placedWords = [];
+            const directions = [
+                [0, 1],   // Horizontal Right
+                [0, -1],  // Horizontal Left (Reverse)
+                [1, 0],   // Vertical Down
+                [-1, 0],  // Vertical Up (Reverse)
+                [1, 1],   // Diagonal Down-Right
+                [-1, -1], // Diagonal Up-Left
+                [1, -1],  // Diagonal Down-Left
+                [-1, 1]   // Diagonal Up-Right
+            ];
+
+            // Sort longest words first for highest placement success
+            const sorted = [...wordList].sort((a, b) => b.length - a.length);
+
+            for (const rawWord of sorted) {
+                const word = rawWord.toUpperCase().replace(/[^A-Z]/g, '');
+                if (word.length > size) continue;
+                let placed = false;
+
+                for (let attempt = 0; attempt < 180 && !placed; attempt++) {
+                    const [dr, dc] = directions[Math.floor(Math.random() * directions.length)];
+                    const r0 = Math.floor(Math.random() * size);
+                    const c0 = Math.floor(Math.random() * size);
+                    const rEnd = r0 + dr * (word.length - 1);
+                    const cEnd = c0 + dc * (word.length - 1);
+
+                    if (rEnd < 0 || rEnd >= size || cEnd < 0 || cEnd >= size) continue;
+
+                    let fits = true;
+                    const coords = [];
+                    for (let i = 0; i < word.length; i++) {
+                        const r = r0 + dr * i;
+                        const c = c0 + dc * i;
+                        if (grid[r][c] !== '' && grid[r][c] !== word[i]) {
+                            fits = false;
+                            break;
+                        }
+                        coords.push({ r, c });
+                    }
+
+                    if (fits) {
+                        coords.forEach((pt, idx) => {
+                            grid[pt.r][pt.c] = word[idx];
+                        });
+                        placedWords.push({ word, coords, found: false });
+                        placed = true;
+                    }
+                }
+            }
+
+            // Fill remaining empty cells with weighted futuristic letters
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    }
+                }
+            }
+
+            return { grid, placedWords };
+        }
+
+        /**
+         * Interactive Laser Drag Controller for any Word Grid
+         */
+        function attachGridInteraction({ gridEl, svgEl, previewEl, getSize, getGridData, onWordMatched, foundClass = 'found', laserColor = '#00f3ff' }) {
+            let isDragging = false;
+            let startCell = null;
+            let currentPath = [];
+            let lockedLines = [];
+
+            function getCellFromPoint(clientX, clientY) {
+                const el = document.elementFromPoint(clientX, clientY);
+                if (el && el.dataset && el.dataset.r !== undefined) {
+                    return { r: parseInt(el.dataset.r, 10), c: parseInt(el.dataset.c, 10), el };
+                }
+                return null;
+            }
+
+            function computeLineCells(start, end) {
+                const dr = end.r - start.r;
+                const dc = end.c - start.c;
+                const steps = Math.max(Math.abs(dr), Math.abs(dc));
+                if (steps === 0) return [start];
+
+                // Snap strictly to horizontal, vertical, or 45-degree diagonal
+                const stepR = dr === 0 ? 0 : dr / Math.abs(dr);
+                const stepC = dc === 0 ? 0 : dc / Math.abs(dc);
+                if (dr !== 0 && dc !== 0 && Math.abs(dr) !== Math.abs(dc)) {
+                    return currentPath; // Keep previous valid ray
+                }
+
+                const cells = [];
+                for (let i = 0; i <= steps; i++) {
+                    cells.push({ r: start.r + stepR * i, c: start.c + stepC * i });
+                }
+                return cells;
+            }
+
+            function renderSelection() {
+                gridEl.querySelectorAll('.word-cell.selecting').forEach(c => c.classList.remove('selecting'));
+                const { grid } = getGridData();
+                let wordStr = '';
+
+                currentPath.forEach(pt => {
+                    const cellEl = gridEl.querySelector(`[data-r="${pt.r}"][data-c="${pt.c}"]`);
+                    if (cellEl) cellEl.classList.add('selecting');
+                    wordStr += grid[pt.r][pt.c];
+                });
+
+                previewEl.textContent = wordStr || 'DRAG TO SCAN';
+                renderLaserSVG();
+            }
+
+            function renderLaserSVG() {
+                const size = getSize();
+                const cellPct = 100 / size;
+                let linesMarkup = '';
+
+                // Previously found permanent laser beams
+                lockedLines.forEach(line => {
+                    const x1 = (line.start.c + 0.5) * cellPct;
+                    const y1 = (line.start.r + 0.5) * cellPct;
+                    const x2 = (line.end.c + 0.5) * cellPct;
+                    const y2 = (line.end.r + 0.5) * cellPct;
+                    linesMarkup += `<line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%" stroke="${line.color}" stroke-width="3.2" stroke-linecap="round" opacity="0.55" />`;
+                });
+
+                // Active dragging beam
+                if (currentPath.length > 0) {
+                    const first = currentPath[0];
+                    const last = currentPath[currentPath.length - 1];
+                    const x1 = (first.c + 0.5) * cellPct;
+                    const y1 = (first.r + 0.5) * cellPct;
+                    const x2 = (last.c + 0.5) * cellPct;
+                    const y2 = (last.r + 0.5) * cellPct;
+                    linesMarkup += `<line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%" stroke="${laserColor}" stroke-width="4.5" stroke-linecap="round" opacity="0.9" />`;
+                }
+
+                svgEl.innerHTML = linesMarkup;
+            }
+
+            function handleStart(e) {
+                const pt = e.touches ? e.touches[0] : e;
+                const cell = getCellFromPoint(pt.clientX, pt.clientY);
+                if (!cell) return;
+                isDragging = true;
+                startCell = cell;
+                currentPath = [cell];
+                AudioEngine.playCellStep(0);
+                renderSelection();
+            }
+
+            function handleMove(e) {
+                if (!isDragging || !startCell) return;
+                if (e.cancelable) e.preventDefault();
+                const pt = e.touches ? e.touches[0] : e;
+                const cell = getCellFromPoint(pt.clientX, pt.clientY);
+                if (!cell) return;
+
+                const nextPath = computeLineCells(startCell, cell);
+                if (nextPath.length !== currentPath.length || nextPath[nextPath.length - 1].r !== currentPath[currentPath.length - 1].r || nextPath[nextPath.length - 1].c !== currentPath[currentPath.length - 1].c) {
+                    currentPath = nextPath;
+                    AudioEngine.playCellStep(currentPath.length - 1);
+                    renderSelection();
+                }
+            }
+
+            function handleEnd(e) {
+                if (!isDragging) return;
+                isDragging = false;
+
+                const { grid, placedWords } = getGridData();
+                const selectedWord = currentPath.map(pt => grid[pt.r][pt.c]).join('');
+                const reversedWord = selectedWord.split('').reverse().join('');
+
+                const match = placedWords.find(w => !w.found && (w.word === selectedWord || w.word === reversedWord));
+
+                if (match && currentPath.length > 1) {
+                    match.found = true;
+                    currentPath.forEach(pt => {
+                        const cellEl = gridEl.querySelector(`[data-r="${pt.r}"][data-c="${pt.c}"]`);
+                        if (cellEl) cellEl.classList.add(foundClass);
+                    });
+
+                    lockedLines.push({
+                        start: currentPath[0],
+                        end: currentPath[currentPath.length - 1],
+                        color: foundClass === 'found-nation' ? '#a78bfa' : '#10b981'
+                    });
+
+                    // Particle burst at midpoint of found word
+                    const mid = currentPath[Math.floor(currentPath.length / 2)];
+                    const midEl = gridEl.querySelector(`[data-r="${mid.r}"][data-c="${mid.c}"]`);
+                    if (midEl) {
+                        const rect = midEl.getBoundingClientRect();
+                        ParticleFX.spawnBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, '#10b981', 32);
+                    }
+
+                    AudioEngine.playWordFound();
+                    onWordMatched(match);
+                }
+
+                gridEl.querySelectorAll('.word-cell.selecting').forEach(c => c.classList.remove('selecting'));
+                currentPath = [];
+                startCell = null;
+                previewEl.textContent = 'DRAG TO SCAN';
+                renderLaserSVG();
+            }
+
+            gridEl.addEventListener('mousedown', handleStart);
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleEnd);
+
+            gridEl.addEventListener('touchstart', handleStart, { passive: false });
+            gridEl.addEventListener('touchmove', handleMove, { passive: false });
+            window.addEventListener('touchend', handleEnd);
+
+            return {
+                resetLines: () => { lockedLines = []; svgEl.innerHTML = ''; }
+            };
+        }
+
+        /**
+         * 6. MODE 1: QUANTUM WORD SEARCH CONTROLLER
+         */
+        const WordGame = (() => {
+            const DATABASES = {
+                cyberpunk: ['NEURAL', 'CYBORG', 'MATRIX', 'HOLOGRAM', 'SYNTH', 'QUANTUM', 'ANDROID', 'PLASMA', 'CORTEX', 'MAINFRAME', 'NEXUS', 'CHROME'],
+                cosmos: ['NEBULA', 'SUPERNOVA', 'QUASAR', 'GALAXY', 'ECLIPSE', 'ASTEROID', 'ORBITAL', 'PULSAR', 'HORIZON', 'STARLIGHT', 'COSMOS', 'VORTEX'],
+                quantum: ['PHOTON', 'ENTANGLE', 'QUARK', 'POSITRON', 'FERMION', 'BOSON', 'WAVEFORM', 'ISOTOPE', 'GRAVITON', 'VECTOR', 'FUSION', 'PROTON'],
+                architecture: ['ATRIUM', 'CANTILEVER', 'FACADE', 'MONOLITH', 'PAVILION', 'BIOPHILIC', 'SPIRES', 'CONCRETE', 'SKYLIGHT', 'TERRACE', 'DOME', 'VAULT'],
+                nations: ['KENYA', 'JAPAN', 'BRAZIL', 'ICELAND', 'CANADA', 'EGYPT', 'NORWAY', 'CHILE', 'VIETNAM', 'MOROCCO', 'SWEDEN', 'PERU']
+            };
+
+            let gridSize = 12;
+            let state = { grid: [], placedWords: [] };
+            let score = 0;
+            let combo = 1.0;
+            let lastMatchTime = 0;
+            let timeLeft = 180;
+            let timerInterval = null;
+            let controller = null;
+
+            function setSize(sz) {
+                gridSize = sz;
+                document.getElementById('btn-size-12').className = sz === 12
+                    ? 'py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                    : 'py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-slate-700 bg-slate-900/70 text-slate-400';
+                document.getElementById('btn-size-14').className = sz === 14
+                    ? 'py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                    : 'py-1.5 px-3 rounded-lg font-mono text-xs font-bold border border-slate-700 bg-slate-900/70 text-slate-400';
+                init();
+            }
+
+            function init() {
+                const category = document.getElementById('ws-category').value;
+                const pool = [...DATABASES[category]].sort(() => Math.random() - 0.5).slice(0, 10);
+                state = generateWordGrid(gridSize, pool);
+                score = 0;
+                combo = 1.0;
+                timeLeft = gridSize === 14 ? 240 : 180;
+
+                if (controller) controller.resetLines();
+                renderGrid();
+                renderWordList();
+                updateStats();
+
+                clearInterval(timerInterval);
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateStats();
+                    if (timeLeft <= 0) {
+                        clearInterval(timerInterval);
+                        AudioEngine.playError();
+                        showToast('QUANTUM CLOCK EXPIRED! MATRIX RESETTING...', 'rose');
+                        setTimeout(init, 2000);
+                    }
+                }, 1000);
+            }
+
+            function renderGrid() {
+                const gridEl = document.getElementById('ws-grid');
+                gridEl.style.gridTemplateColumns = `repeat(${gridSize}, minmax(0, 1fr))`;
+                gridEl.innerHTML = '';
+
+                const fontSizeClass = gridSize === 14 ? 'text-xs sm:text-base' : 'text-sm sm:text-lg';
+                for (let r = 0; r < gridSize; r++) {
+                    for (let c = 0; c < gridSize; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = `word-cell ${fontSizeClass}`;
+                        cell.dataset.r = r;
+                        cell.dataset.c = c;
+                        cell.textContent = state.grid[r][c];
+                        gridEl.appendChild(cell);
+                    }
+                }
+            }
+
+            function renderWordList() {
+                const listEl = document.getElementById('ws-word-list');
+                listEl.innerHTML = '';
+                state.placedWords.forEach(item => {
+                    const badge = document.createElement('div');
+                    badge.className = item.found
+                        ? 'px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 line-through opacity-75'
+                        : 'px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold bg-slate-900/90 border border-slate-700 text-slate-200';
+                    badge.textContent = item.word;
+                    listEl.appendChild(badge);
+                });
+            }
+
+            function updateStats() {
+                const foundCount = state.placedWords.filter(w => w.found).length;
+                document.getElementById('ws-progress').textContent = `${foundCount} / ${state.placedWords.length}`;
+                document.getElementById('ws-score').textContent = score.toLocaleString();
+                document.getElementById('ws-combo-badge').textContent = `${combo.toFixed(1)}x COMBO`;
+
+                const mins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
+                const secs = String(timeLeft % 60).padStart(2, '0');
+                document.getElementById('ws-timer').textContent = `${mins}:${secs}`;
+            }
+
+            function handleMatch(match) {
+                const now = Date.now();
+                if (now - lastMatchTime < 12000) {
+                    combo = Math.min(4.0, combo + 0.5);
+                } else {
+                    combo = 1.0;
+                }
+                lastMatchTime = now;
+
+                const pts = Math.round(match.word.length * 25 * combo);
+                score += pts;
+                PlayerProfile.addXP(Math.round(pts / 2), `FOUND ${match.word}`);
+                renderWordList();
+                updateStats();
+
+                // Check full board clear
+                if (state.placedWords.every(w => w.found)) {
+                    clearInterval(timerInterval);
+                    AudioEngine.playFanfare();
+                    const bonus = timeLeft * 2;
+                    PlayerProfile.addXP(200, 'MATRIX CLEARED!');
+                    showToast(`SECTOR CLEARED! TIME BONUS +${bonus} PTS`, 'emerald');
+                    setTimeout(init, 2500);
+                }
+            }
+
+            function useHint() {
+                const unfound = state.placedWords.find(w => !w.found);
+                if (!unfound) return;
+                AudioEngine.playClick(780);
+                const firstCoord = unfound.coords[0];
+                const cellEl = document.querySelector(`#ws-grid [data-r="${firstCoord.r}"][data-c="${firstCoord.c}"]`);
+                if (cellEl) {
+                    cellEl.classList.remove('hint-pulse');
+                    void cellEl.offsetWidth;
+                    cellEl.classList.add('hint-pulse');
+                }
+                showToast(`SCANNER PULSE: "${unfound.word[0]}" LOCATED`, 'amber');
+            }
+
+            function setup() {
+                controller = attachGridInteraction({
+                    gridEl: document.getElementById('ws-grid'),
+                    svgEl: document.getElementById('ws-laser-svg'),
+                    previewEl: document.getElementById('ws-live-preview'),
+                    getSize: () => gridSize,
+                    getGridData: () => state,
+                    onWordMatched: handleMatch,
+                    foundClass: 'found',
+                    laserColor: '#00f3ff'
+                });
+                init();
+            }
+
+            return { setup, init, setSize, useHint };
+        })();
+
+        /**
+         * 7. MODE 2: GLOBAL NATIONS DECODER (FIND NATIONAL MODE)
+         */
+        const NationsGame = (() => {
+            const NATIONS_DB = [
+                { name: 'KENYA', capital: 'Nairobi', region: 'East Africa', flag: '🇰🇪', fact: 'Home to the Great Rift Valley, Silicon Savannah tech hub, and legendary long-distance runners.' },
+                { name: 'JAPAN', capital: 'Tokyo', region: 'East Asia', flag: '🇯🇵', fact: 'An archipelago of 14,125 islands blending ancient traditions with world-leading robotics and bullet trains.' },
+                { name: 'ICELAND', capital: 'Reykjavik', region: 'Northern Europe', flag: '🇮🇸', fact: 'Powered almost entirely by renewable geothermal and hydroelectric energy with zero mosquitoes.' },
+                { name: 'BRAZIL', capital: 'Brasilia', region: 'South America', flag: '🇧🇷', fact: 'Contains 60% of the Amazon Rainforest, the planet’s richest reservoir of biodiversity.' },
+                { name: 'NORWAY', capital: 'Oslo', region: 'Scandinavia', flag: '🇳🇴', fact: 'Famous for deep glacial fjords, Midnight Sun phenomena, and global sovereign wealth innovation.' },
+                { name: 'EGYPT', capital: 'Cairo', region: 'North Africa', flag: '🇪🇬', fact: 'Site of the Great Pyramid of Giza, the oldest of the Seven Wonders of the Ancient World.' },
+                { name: 'CANADA', capital: 'Ottawa', region: 'North America', flag: '🇨🇦', fact: 'Possesses the longest coastline of any nation in the world and over two million glacial lakes.' },
+                { name: 'CHILE', capital: 'Santiago', region: 'South America', flag: '🇨🇱', fact: 'Stretches over 4,300 km north-to-south and hosts the clearest astronomical observatories in the Atacama.' },
+                { name: 'MOROCCO', capital: 'Rabat', region: 'North Africa', flag: '🇲🇦', fact: 'Home to Al Quaraouiyine, founded in 859 AD and recognized as the oldest continually operating university.' },
+                { name: 'VIETNAM', capital: 'Hanoi', region: 'Southeast Asia', flag: '🇻🇳', fact: 'Houses Son Doong, the largest natural cave passage on Earth with its own subterranean jungle.' },
+                { name: 'SWEDEN', capital: 'Stockholm', region: 'Northern Europe', flag: '🇸🇪', fact: 'Birthplace of the Nobel Prizes and pioneer in sustainable smart-city architecture.' },
+                { name: 'PERU', capital: 'Lima', region: 'South America', flag: '🇵🇪', fact: 'Heartland of the Inca Empire and home to the 15th-century mountain citadel of Machu Picchu.' }
+            ];
+
+            let gridState = { grid: [], placedWords: [] };
+            let gridController = null;
+            let activeNations = [];
+
+            // Geo-Cipher state
+            let currentCipher = null;
+            let cipherStreak = 0;
+            let cipherTime = 30;
+            let cipherTimer = null;
+            let nationSolved = false;
+
+            function switchSubMode(sub) {
+                AudioEngine.playClick(580);
+                const isGrid = sub === 'grid';
+                document.getElementById('nations-grid-view').classList.toggle('hidden', !isGrid);
+                document.getElementById('nations-cipher-view').classList.toggle('hidden', isGrid);
+
+                document.getElementById('nat-sub-grid').className = isGrid
+                    ? 'px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider bg-violet-600 text-white shadow-lg transition'
+                    : 'px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider text-slate-400 hover:text-white transition';
+                document.getElementById('nat-sub-cipher').className = !isGrid
+                    ? 'px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider bg-violet-600 text-white shadow-lg transition'
+                    : 'px-4 py-2 rounded-lg font-display font-bold text-xs tracking-wider text-slate-400 hover:text-white transition';
+
+                if (!isGrid) {
+                    nextCipher(false);
+                } else {
+                    clearInterval(cipherTimer);
+                }
+            }
+
+            function initGrid() {
+                activeNations = [...NATIONS_DB].sort(() => Math.random() - 0.5).slice(0, 8);
+                gridState = generateWordGrid(12, activeNations.map(n => n.name));
+                if (gridController) gridController.resetLines();
+
+                const gridEl = document.getElementById('nat-grid');
+                gridEl.innerHTML = '';
+                for (let r = 0; r < 12; r++) {
+                    for (let c = 0; c < 12; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'word-cell text-sm sm:text-base';
+                        cell.dataset.r = r;
+                        cell.dataset.c = c;
+                        cell.textContent = gridState.grid[r][c];
+                        gridEl.appendChild(cell);
+                    }
+                }
+                renderTargetNations();
+            }
+
+            function renderTargetNations() {
+                const listEl = document.getElementById('nat-target-list');
+                listEl.innerHTML = '';
+                let foundCount = 0;
+
+                gridState.placedWords.forEach(pw => {
+                    const nationObj = activeNations.find(n => n.name === pw.word);
+                    if (pw.found) foundCount++;
+                    const el = document.createElement('div');
+                    el.className = pw.found
+                        ? 'px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold bg-violet-500/25 border border-violet-400 text-violet-200 flex items-center justify-between'
+                        : 'px-2.5 py-1.5 rounded-lg font-mono text-xs font-bold bg-slate-900/90 border border-slate-700 text-slate-300 flex items-center justify-between';
+                    el.innerHTML = `<span>${pw.found && nationObj ? nationObj.flag + ' ' : ''}${pw.word}</span><span>${pw.found ? '✓' : '•'}</span>`;
+                    listEl.appendChild(el);
+                });
+
+                document.getElementById('nat-progress').textContent = `${foundCount} / ${gridState.placedWords.length}`;
+            }
+
+            function onNationFound(match) {
+                const nation = activeNations.find(n => n.name === match.word);
+                if (nation) {
+                    document.getElementById('intel-flag').textContent = nation.flag;
+                    document.getElementById('intel-name').textContent = nation.name;
+                    document.getElementById('intel-region').textContent = nation.region.toUpperCase();
+                    document.getElementById('intel-capital').textContent = nation.capital.toUpperCase();
+                    document.getElementById('intel-fact').textContent = nation.fact;
+                }
+                PlayerProfile.addXP(120, `DECODED ${match.word}`);
+                renderTargetNations();
+
+                if (gridState.placedWords.every(w => w.found)) {
+                    AudioEngine.playFanfare();
+                    showToast('ALL GLOBAL TERRITORIES DECODED! +250 XP', 'emerald');
+                    PlayerProfile.addXP(250, 'GLOBAL MATRIX COMPLETE');
+                    setTimeout(initGrid, 2800);
+                }
+            }
+
+            // SUB-MODE B: GEO-CIPHER SCRAMBLE LOGIC
+            function scrambleWord(word) {
+                const arr = word.split('');
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr.join('') === word ? scrambleWord(word) : arr.join('');
+            }
+
+            function nextCipher(penalize = false) {
+                if (penalize) {
+                    cipherStreak = 0;
+                    PlayerProfile.addXP(-10);
+                }
+                nationSolved = false;
+                currentCipher = NATIONS_DB[Math.floor(Math.random() * NATIONS_DB.length)];
+                const scrambled = scrambleWord(currentCipher.name);
+
+                document.getElementById('cipher-hint-region').textContent = `SATELLITE SECTOR: ${currentCipher.region.toUpperCase()}`;
+                document.getElementById('cipher-streak').textContent = `${cipherStreak} 🔥`;
+                document.getElementById('cipher-input').value = '';
+                document.getElementById('cipher-input').disabled = false;
+                document.getElementById('cipher-feedback').textContent = '';
+
+                const boxesEl = document.getElementById('cipher-scrambled-boxes');
+                boxesEl.innerHTML = '';
+                scrambled.split('').forEach(ch => {
+                    const tile = document.createElement('div');
+                    tile.className = 'w-10 h-11 sm:w-12 sm:h-14 rounded-xl bg-slate-900 border border-violet-400/60 flex items-center justify-center font-display font-black text-xl sm:text-2xl text-cyan-300 shadow-[0_0_12px_rgba(139,92,246,0.3)]';
+                    tile.textContent = ch;
+                    boxesEl.appendChild(tile);
+                });
+
+                // Build 4 Capital Options
+                const wrongCapitals = NATIONS_DB.filter(n => n.capital !== currentCipher.capital)
+                    .sort(() => Math.random() - 0.5)
+                    .slice(0, 3)
+                    .map(n => n.capital);
+                const choices = [currentCipher.capital, ...wrongCapitals].sort(() => Math.random() - 0.5);
+
+                const capContainer = document.getElementById('cipher-capital-options');
+                capContainer.innerHTML = '';
+                choices.forEach(cap => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-cyber py-3 px-4 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-fuchsia-400 text-left font-mono text-xs sm:text-sm font-bold text-slate-200';
+                    btn.textContent = `🏛️ ${cap.toUpperCase()}`;
+                    btn.onclick = () => checkCapital(cap, btn);
+                    capContainer.appendChild(btn);
+                });
+
+                cipherTime = 35;
+                document.getElementById('cipher-timer').textContent = `${cipherTime}s`;
+                clearInterval(cipherTimer);
+                cipherTimer = setInterval(() => {
+                    cipherTime--;
+                    document.getElementById('cipher-timer').textContent = `${cipherTime}s`;
+                    if (cipherTime <= 0) {
+                        clearInterval(cipherTimer);
+                        AudioEngine.playError();
+                        showToast(`SIGNAL LOST! IT WAS ${currentCipher.name}`, 'rose');
+                        nextCipher(true);
+                    }
+                }, 1000);
+            }
+
+            function checkCipher() {
+                if (nationSolved) return;
+                const guess = document.getElementById('cipher-input').value.trim().toUpperCase();
+                if (guess === currentCipher.name) {
+                    nationSolved = true;
+                    cipherStreak++;
+                    AudioEngine.playWordFound();
+                    document.getElementById('cipher-streak').textContent = `${cipherStreak} 🔥`;
+                    document.getElementById('cipher-input').disabled = true;
+                    document.getElementById('cipher-feedback').textContent = `${currentCipher.flag} NATION VERIFIED! NOW SELECT CAPITAL →`;
+                    PlayerProfile.addXP(100 + cipherStreak * 15, `DECRYPTED ${currentCipher.name}`);
+                } else {
+                    AudioEngine.playError();
+                    showToast('CIPHER MISMATCH — RETRY', 'rose');
+                }
+            }
+
+            function checkCapital(selectedCap, btnEl) {
+                if (!nationSolved) {
+                    showToast('DECRYPT THE NATION NAME FIRST!', 'amber');
+                    return;
+                }
+                if (selectedCap === currentCipher.capital) {
+                    clearInterval(cipherTimer);
+                    AudioEngine.playFanfare();
+                    btnEl.classList.add('border-emerald-400', 'bg-emerald-500/25', 'text-emerald-200');
+                    PlayerProfile.addXP(100, `CAPITAL ${selectedCap.toUpperCase()} VERIFIED`);
+                    setTimeout(() => nextCipher(false), 1400);
+                } else {
+                    AudioEngine.playError();
+                    btnEl.classList.add('border-rose-500', 'bg-rose-500/20', 'text-rose-300');
+                    showToast('INCORRECT CAPITAL COORDINATES', 'rose');
+                }
+            }
+
+            function setup() {
+                gridController = attachGridInteraction({
+                    gridEl: document.getElementById('nat-grid'),
+                    svgEl: document.getElementById('nat-laser-svg'),
+                    previewEl: document.getElementById('nat-live-preview'),
+                    getSize: () => 12,
+                    getGridData: () => gridState,
+                    onWordMatched: onNationFound,
+                    foundClass: 'found-nation',
+                    laserColor: '#a78bfa'
+                });
+                initGrid();
+            }
+
+            return { setup, initGrid, switchSubMode, nextCipher, checkCipher };
+        })();
+
+        /**
+         * 8. MODE 3: HOLO-TRUTH OR DARE (3D REACTOR SPINNER & FLIP CARDS)
+         */
+        const PartyGame = (() => {
+            const AVATARS = ['🤖', '👾', '🦊', '⚡', '🛸', '🐉', '🧬', '🔮'];
+            const WHEEL_COLORS = ['#00f3ff', '#ff007f', '#8b5cf6', '#10b981', '#f59e0b', '#3b82f6'];
+
+            let players = [
+                { name: 'NOVA-7', avatar: '🤖', score: 0 },
+                { name: 'CYBER-FOX', avatar: '🦊', score: 0 },
+                { name: 'VEX-99', avatar: '👾', score: 0 },
+                { name: 'ORION', avatar: '🛸', score: 0 }
+            ];
+
+            let currentTier = 'chill';
+            let wheelAngle = 0;
+            let isSpinning = false;
+            let selectedPlayerIndex = null;
+            let activeCardType = 'truth';
+
+            const PROMPTS = {
+                chill: {
+                    truth: [
+                        "What is the most futuristic invention you wish existed right now?",
+                        "Which contact in your phone would survive longest in a cyber-apocalypse?",
+                        "What is the weirdest rabbit hole you’ve fallen down at 3 AM?",
+                        "If you could download one skill instantly into your brain, what would it be?",
+                        "What is a guilty-pleasure song you secretly know every lyric to?"
+                    ],
+                    dare: [
+                        "Speak in a robotic AI voice until your next turn.",
+                        "Let the group choose a futuristic nickname for you for the rest of the game.",
+                        "Do your best slow-motion sci-fi action movie dodge right now.",
+                        "Balance a random object on your head while answering the next question.",
+                        "Invent a 15-second commercial for an invisible smartphone."
+                    ]
+                },
+                bold: {
+                    truth: [
+                        "Who in this room do you trust most with your unlocked phone for 5 minutes?",
+                        "What is the boldest DM or text message you have ever sent?",
+                        "What is one rumor or assumption people make about you that is totally false?",
+                        "If you had to swap lives with one player here for a week, who would it be and why?",
+                        "What is the most spontaneous decision you’ve made this year?"
+                    ],
+                    dare: [
+                        "Let the player to your left send a single emoji to the 3rd person in your recent chats.",
+                        "Perform a dramatic 20-second runway walk across the room.",
+                        "Do 15 pushups or squats while reciting the alphabet backwards.",
+                        "Let the group post a harmless status or story caption of their choice.",
+                        "Hold a plank for 30 seconds while everyone tries to make you laugh."
+                    ]
+                },
+                extreme: {
+                    truth: [
+                        "Reveal your screen-time report for the past 7 days to the entire group.",
+                        "What is a secret talent or ambition you’ve never told anyone in this room?",
+                        "Rank everyone in the room by who would become a billionaire first.",
+                        "What is the biggest risk you’ve ever taken that actually paid off?",
+                        "If your life were a movie, what would the brutally honest title be?"
+                    ],
+                    dare: [
+                        "Call a friend and convince them in 30 seconds that you just won a trip to Mars.",
+                        "Freestyle a 4-line rap about the person sitting directly across from you.",
+                        "Keep your eyes closed and let someone feed you a mystery snack or drink.",
+                        "Do an impression of another player until someone guesses who it is.",
+                        "Trade one wearable accessory with the player on your right for three rounds."
+                    ]
+                }
+            };
+
+            function renderRoster() {
+                const listEl = document.getElementById('party-roster-list');
+                listEl.innerHTML = '';
+                players.forEach((p, idx) => {
+                    const isSelected = idx === selectedPlayerIndex;
+                    const row = document.createElement('div');
+                    row.className = `flex items-center justify-between px-3 py-2 rounded-xl border transition ${
+                        isSelected ? 'bg-fuchsia-500/25 border-fuchsia-400 shadow-[0_0_12px_rgba(255,0,127,0.35)]' : 'bg-slate-900/80 border-slate-800'
+                    }`;
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">${p.avatar}</span>
+                            <span class="font-display font-bold text-xs sm:text-sm text-white">${p.name}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-xs font-bold text-amber-400">${p.score} PTS</span>
+                            ${players.length > 2 ? `<button onclick="PartyGame.removePlayer(${idx})" class="text-slate-500 hover:text-rose-400 text-xs px-1">✕</button>` : ''}
+                        </div>
+                    `;
+                    listEl.appendChild(row);
+                });
+                drawWheel();
+            }
+
+            function addPlayer() {
+                const input = document.getElementById('party-player-input');
+                const name = input.value.trim().toUpperCase();
+                if (!name) return;
+                if (players.length >= 10) {
+                    showToast('MAXIMUM 10 AGENTS IN REACTOR', 'amber');
+                    return;
+                }
+                const avatar = AVATARS[players.length % AVATARS.length];
+                players.push({ name, avatar, score: 0 });
+                input.value = '';
+                AudioEngine.playClick(640);
+                renderRoster();
+            }
+
+            function removePlayer(idx) {
+                if (players.length <= 2) return;
+                players.splice(idx, 1);
+                selectedPlayerIndex = null;
+                AudioEngine.playClick(340);
+                renderRoster();
+            }
+
+            function setTier(tier) {
+                currentTier = tier;
+                AudioEngine.playClick(620);
+                ['chill', 'bold', 'extreme'].forEach(t => {
+                    const btn = document.getElementById(`tier-${t}`);
+                    if (t === tier) {
+                        btn.className = 'tier-btn py-2.5 px-3 rounded-xl border border-fuchsia-400 bg-fuchsia-500/25 text-fuchsia-200 font-display font-bold text-xs text-left flex items-center justify-between shadow-[0_0_14px_rgba(255,0,127,0.3)]';
+                    } else {
+                        btn.className = 'tier-btn py-2.5 px-3 rounded-xl border border-slate-700 bg-slate-900/70 text-slate-400 font-display font-bold text-xs text-left flex items-center justify-between';
+                    }
+                });
+            }
+
+            function drawWheel() {
+                const canvas = document.getElementById('party-wheel-canvas');
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const radius = cx - 8;
+                const sliceAngle = (Math.PI * 2) / players.length;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                players.forEach((p, i) => {
+                    const start = wheelAngle + i * sliceAngle;
+                    const end = start + sliceAngle;
+                    const color = WHEEL_COLORS[i % WHEEL_COLORS.length];
+
+                    // Segment fill
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.arc(cx, cy, radius, start, end);
+                    ctx.closePath();
+                    ctx.fillStyle = color + '33';
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = color;
+                    ctx.stroke();
+
+                    // Label & Avatar
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(start + sliceAngle / 2);
+                    ctx.textAlign = 'right';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 13px Orbitron, sans-serif';
+                    ctx.fillText(`${p.avatar} ${p.name}`, radius - 18, 5);
+                    ctx.restore();
+                });
+
+                // Outer Holographic Ring
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#00f3ff';
+                ctx.stroke();
+            }
+
+            function spinWheel() {
+                if (isSpinning) return;
+                isSpinning = true;
+                document.getElementById('party-flip-card').classList.remove('flipped');
+
+                const spinDuration = 3200;
+                const startAngle = wheelAngle;
+                const extraRotations = (Math.PI * 2) * (5 + Math.random() * 4);
+                const startTime = performance.now();
+                let lastTickSector = -1;
+
+                function animateSpin(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(1, elapsed / spinDuration);
+                    // Cubic ease-out deceleration
+                    const ease = 1 - Math.pow(1 - progress, 3);
+                    wheelAngle = startAngle + extraRotations * ease;
+                    drawWheel();
+
+                    // Synthesize tick sound whenever slice crosses top pointer (-PI/2)
+                    const sliceAngle = (Math.PI * 2) / players.length;
+                    const normalized = ((-Math.PI / 2 - wheelAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+                    const currentSector = Math.floor(normalized / sliceAngle);
+
+                    if (currentSector !== lastTickSector) {
+                        lastTickSector = currentSector;
+                        AudioEngine.playSpinTick(380 + (1 - progress) * 320);
+                    }
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animateSpin);
+                    } else {
+                        isSpinning = false;
+                        selectedPlayerIndex = currentSector;
+                        const chosen = players[selectedPlayerIndex];
+                        document.getElementById('party-active-name').textContent = `${chosen.avatar} ${chosen.name}`;
+                        AudioEngine.playWordFound();
+                        renderRoster();
+
+                        const rect = document.getElementById('party-wheel-canvas').getBoundingClientRect();
+                        ParticleFX.spawnBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, '#ff007f', 36);
+                    }
+                }
+
+                requestAnimationFrame(animateSpin);
+            }
+
+            function drawCard(type) {
+                if (selectedPlayerIndex === null) {
+                    // Auto-pick random player if user didn't spin yet
+                    selectedPlayerIndex = Math.floor(Math.random() * players.length);
+                    const chosen = players[selectedPlayerIndex];
+                    document.getElementById('party-active-name').textContent = `${chosen.avatar} ${chosen.name}`;
+                    renderRoster();
+                }
+
+                activeCardType = type;
+                const player = players[selectedPlayerIndex];
+                const pool = PROMPTS[currentTier][type];
+                const prompt = pool[Math.floor(Math.random() * pool.length)];
+
+                const badge = document.getElementById('card-badge-type');
+                badge.textContent = `${type.toUpperCase()} • ${currentTier.toUpperCase()}`;
+                badge.className = type === 'truth'
+                    ? 'px-3 py-0.5 rounded-full text-xs font-display font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-400/40'
+                    : 'px-3 py-0.5 rounded-full text-xs font-display font-bold bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-400/40';
+
+                document.getElementById('card-badge-player').textContent = `${player.avatar} ${player.name}`;
+                document.getElementById('card-prompt-text').textContent = prompt;
+
+                AudioEngine.playClick(type === 'truth' ? 680 : 480);
+                document.getElementById('party-flip-card').classList.add('flipped');
+            }
+
+            function resolveCard(completed) {
+                const multiplier = currentTier === 'extreme' ? 2.5 : currentTier === 'bold' ? 1.5 : 1.0;
+                const delta = completed ? Math.round(100 * multiplier) : -40;
+
+                if (selectedPlayerIndex !== null && players[selectedPlayerIndex]) {
+                    players[selectedPlayerIndex].score = Math.max(0, players[selectedPlayerIndex].score + delta);
+                }
+
+                if (completed) {
+                    AudioEngine.playFanfare();
+                    PlayerProfile.addXP(delta, `${activeCardType.toUpperCase()} COMPLETED`);
+                } else {
+                    AudioEngine.playError();
+                    PlayerProfile.addXP(delta);
+                    showToast('CHICKENED OUT! -40 XP', 'rose');
+                }
+
+                document.getElementById('party-flip-card').classList.remove('flipped');
+                renderRoster();
+            }
+
+            function setup() {
+                renderRoster();
+            }
+
+            return { setup, addPlayer, removePlayer, setTier, drawWheel, spinWheel, drawCard, resolveCard };
+        })();
+
+        /**
+         * 9. SYSTEM BOOTSTRAP ON WINDOW LOAD
+         */
+        window.onload = function () {
+            PlayerProfile.updateHUD();
+            ParticleFX.loop();
+            WordGame.setup();
+            NationsGame.setup();
+            PartyGame.setup();
+        };
+    </script>
+</body>
+</html>
