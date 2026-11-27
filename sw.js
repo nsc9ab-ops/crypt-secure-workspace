@@ -9,6 +9,8 @@ const APP_FILES = [
   './features.js',
   './games/cyber-arcade-twin-system.html',
   './games/kenya-highway-pro.html',
+  './games/kenya-highway-pro.css',
+  './games/kenya-highway-pro.js',
   './games/neon-nexus.css',
   './assets/member-motion.css',
   './app-icon.svg',
