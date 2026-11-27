@@ -238,6 +238,35 @@ Check your Browserslist config to be sure that your targets are set up correctly
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: rgba(7, 11, 18, 0.8); }
         ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 999px; }
+
+        /* Clean angular cockpit UI: precise cyan edge light, crisp panels and controls. */
+        .hud-panel {
+            background: linear-gradient(145deg, rgba(13, 25, 39, 0.94), rgba(5, 10, 18, 0.92));
+            border-color: rgba(96, 190, 218, 0.38);
+            border-radius: 0 !important;
+            clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+            box-shadow: inset 2px 0 0 rgba(45, 171, 202, 0.24), 0 10px 30px rgba(0, 0, 0, 0.48);
+        }
+        .btn-press {
+            border-radius: 0 !important;
+            clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
+            letter-spacing: 0.035em;
+        }
+        .hud-panel [class*="rounded-"], .hud-panel button, .hud-panel input, .hud-panel select {
+            border-radius: 0 !important;
+        }
+        .pedal-metal {
+            border-radius: 0 !important;
+            clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 7px, 100% calc(100% - 7px), calc(100% - 7px) 100%, 7px 100%, 0 calc(100% - 7px), 0 7px);
+        }
+        #traffic-status-pill { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+        #traffic-status-pill[data-state="GREEN"] { box-shadow: 0 0 16px rgba(52, 211, 153, 0.13); }
+        #traffic-status-pill[data-state="AMBER"] { box-shadow: 0 0 16px rgba(251, 191, 36, 0.13); }
+        #traffic-status-pill[data-state="RED"] { box-shadow: 0 0 16px rgba(251, 113, 133, 0.13); }
+        #toast-feed > div {
+            border-radius: 0 !important;
+            clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
+        }
     </style>
 </head>
 <body>
@@ -841,12 +870,27 @@ Check your Browserslist config to be sure that your targets are set up correctly
 
                 if (style === 'glass_tower') {
                     // Nairobi CBD / Upper Hill Modern Curtain-Wall Skyscraper
-                    ctx.fillStyle = '#0f2537';
+                    const glassBase = ctx.createLinearGradient(0, 0, 512, 1024);
+                    glassBase.addColorStop(0, '#203f52');
+                    glassBase.addColorStop(0.32, '#557681');
+                    glassBase.addColorStop(0.56, '#17354a');
+                    glassBase.addColorStop(1, '#101f30');
+                    ctx.fillStyle = glassBase;
+                    ctx.fillRect(0, 0, 512, 1024);
+
+                    // Broad, soft sky reflections make the curtain wall read as glass at a distance.
+                    const reflection = ctx.createLinearGradient(0, 70, 512, 480);
+                    reflection.addColorStop(0, 'rgba(220,242,239,0.02)');
+                    reflection.addColorStop(0.28, 'rgba(203,232,226,0.28)');
+                    reflection.addColorStop(0.42, 'rgba(233,242,220,0.07)');
+                    reflection.addColorStop(0.7, 'rgba(130,190,204,0.2)');
+                    reflection.addColorStop(1, 'rgba(5,16,29,0.16)');
+                    ctx.fillStyle = reflection;
                     ctx.fillRect(0, 0, 512, 1024);
 
                     const cols = 8;
-                    const rows = 20;
-                    const padX = 8, padY = 8;
+                    const rows = 24;
+                    const padX = 3, padY = 4;
                     const w = (512 - padX * (cols + 1)) / cols;
                     const h = (1024 - padY * (rows + 1)) / rows;
 
@@ -854,67 +898,162 @@ Check your Browserslist config to be sure that your targets are set up correctly
                         for (let col = 0; col < cols; col++) {
                             const x = padX + col * (w + padX);
                             const y = padY + r * (h + padY);
-                            const lit = Math.random() > 0.68;
+                            const lit = Math.random() > 0.84;
                             const grad = ctx.createLinearGradient(x, y, x + w, y + h);
                             if (lit) {
-                                grad.addColorStop(0, '#fef3c7');
-                                grad.addColorStop(1, '#38bdf8');
+                                grad.addColorStop(0, '#c7c7a8');
+                                grad.addColorStop(1, '#687f82');
                             } else {
-                                grad.addColorStop(0, '#1e3a5f');
-                                grad.addColorStop(1, '#0c192c');
+                                grad.addColorStop(0, '#477080');
+                                grad.addColorStop(0.55, '#1b3e51');
+                                grad.addColorStop(1, '#142b3d');
                             }
                             ctx.fillStyle = grad;
                             ctx.fillRect(x, y, w, h);
+                            ctx.fillStyle = 'rgba(235,244,238,0.09)';
+                            ctx.fillRect(x + 2, y + 2, 1.5, h - 4);
                         }
                     }
-                    // Steel mullions
-                    ctx.fillStyle = '#334155';
+                    // Fine steel mullions and recessed floor joints.
+                    ctx.fillStyle = 'rgba(15,29,40,0.78)';
                     for (let i = 0; i <= cols; i++) ctx.fillRect(i * (w + padX), 0, padX, 1024);
+                    for (let y = 0; y < 1024; y += 43) {
+                        ctx.fillStyle = 'rgba(8,19,29,0.34)';
+                        ctx.fillRect(0, y, 512, 2);
+                        ctx.fillStyle = 'rgba(211,231,224,0.12)';
+                        ctx.fillRect(0, y + 2, 512, 1);
+                    }
+                    ctx.fillStyle = 'rgba(212,229,218,0.16)';
+                    ctx.fillRect(14, 0, 2, 1024);
+                    ctx.fillRect(497, 0, 3, 1024);
                 } else if (style === 'kenyan_plaza') {
                     // Realistic Kenyan Town Commercial Building (Eldoret / Nakuru / Kisumu Plaza with Ground Shopfronts)
-                    ctx.fillStyle = '#d6cfc2'; // Warm cream/terracotta plaster
+                    const plaster = ctx.createLinearGradient(0, 0, 512, 0);
+                    plaster.addColorStop(0, '#aa9d87');
+                    plaster.addColorStop(0.16, '#ded4c0');
+                    plaster.addColorStop(0.82, '#d1c6b3');
+                    plaster.addColorStop(1, '#918573');
+                    ctx.fillStyle = plaster;
                     ctx.fillRect(0, 0, 512, 1024);
+
+                    // Fine plaster variation and understated weathering around slab edges.
+                    for (let i = 0; i < 5200; i++) {
+                        const shade = Math.random() > 0.5 ? 255 : 78;
+                        ctx.fillStyle = `rgba(${shade},${shade === 255 ? 246 : 68},${shade === 255 ? 230 : 52},${Math.random() * 0.035})`;
+                        ctx.fillRect(Math.random() * 512, Math.random() * 1024, 1 + Math.random() * 2, 1 + Math.random() * 3);
+                    }
 
                     // Horizontal concrete floor slabs & balconies
                     for (let y = 80; y < 860; y += 130) {
-                        ctx.fillStyle = '#8c7f70';
-                        ctx.fillRect(0, y, 512, 18);
-                        // Recessed dark glass windows
+                        const slab = ctx.createLinearGradient(0, y, 0, y + 22);
+                        slab.addColorStop(0, '#f0e8d9');
+                        slab.addColorStop(0.18, '#a79a85');
+                        slab.addColorStop(1, '#7e7466');
+                        ctx.fillStyle = slab;
+                        ctx.fillRect(0, y, 512, 20);
+                        ctx.fillStyle = 'rgba(32,31,27,0.23)';
+                        ctx.fillRect(0, y + 20, 512, 5);
+                        // Deep window reveals, reflective panes, sills and narrow metal mullions.
                         for (let x = 24; x < 470; x += 96) {
-                            ctx.fillStyle = '#1e293b';
-                            ctx.fillRect(x, y + 26, 72, 84);
-                            ctx.strokeStyle = '#f8fafc';
-                            ctx.lineWidth = 3;
-                            ctx.strokeRect(x, y + 26, 72, 84);
+                            ctx.fillStyle = '#665f55';
+                            ctx.fillRect(x - 4, y + 27, 80, 87);
+                            const pane = ctx.createLinearGradient(x, y + 28, x + 72, y + 110);
+                            pane.addColorStop(0, '#80989a');
+                            pane.addColorStop(0.36, '#334e59');
+                            pane.addColorStop(0.7, '#182b36');
+                            pane.addColorStop(1, '#587077');
+                            ctx.fillStyle = pane;
+                            ctx.fillRect(x, y + 29, 72, 79);
+                            ctx.fillStyle = 'rgba(230,235,218,0.2)';
+                            ctx.beginPath();
+                            ctx.moveTo(x + 5, y + 32);
+                            ctx.lineTo(x + 24, y + 32);
+                            ctx.lineTo(x + 8, y + 103);
+                            ctx.lineTo(x + 4, y + 103);
+                            ctx.fill();
+                            ctx.fillStyle = 'rgba(12,24,31,0.78)';
+                            ctx.fillRect(x + 35, y + 29, 2, 79);
+                            ctx.fillStyle = '#e2d6c1';
+                            ctx.fillRect(x - 3, y + 108, 78, 6);
                         }
                     }
+
+                    // Corner piers and a restrained roof parapet give the block a crisp silhouette.
+                    const pier = ctx.createLinearGradient(0, 0, 15, 0);
+                    pier.addColorStop(0, 'rgba(80,70,58,0.38)');
+                    pier.addColorStop(0.45, 'rgba(248,239,220,0.42)');
+                    pier.addColorStop(1, 'rgba(90,80,68,0.22)');
+                    ctx.fillStyle = pier;
+                    ctx.fillRect(0, 0, 17, 875);
+                    ctx.fillRect(495, 0, 17, 875);
+                    ctx.fillStyle = '#877c6c';
+                    ctx.fillRect(0, 52, 512, 18);
+                    ctx.fillStyle = 'rgba(255,246,222,0.46)';
+                    ctx.fillRect(0, 50, 512, 3);
 
                     // Ground Floor Kenyan Retail Shopfronts (Supermarket / Pharmacy / Bank)
                     ctx.fillStyle = '#065f46';
                     ctx.fillRect(0, 860, 512, 46);
                     ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 26px Rajdhani, sans-serif';
-                    ctx.fillText('KENYA COMMERCIAL PLAZA • SUPERMARKET', 24, 892);
+                    ctx.font = 'bold 24px Rajdhani, sans-serif';
+                    ctx.fillText('COMMERCIAL', 28, 891);
 
-                    ctx.fillStyle = '#0f172a';
+                    const shopGlass = ctx.createLinearGradient(0, 912, 0, 1016);
+                    shopGlass.addColorStop(0, '#3f5d62');
+                    shopGlass.addColorStop(0.5, '#172e38');
+                    shopGlass.addColorStop(1, '#0c1c25');
+                    ctx.fillStyle = shopGlass;
                     ctx.fillRect(18, 912, 476, 104);
+                    ctx.fillStyle = 'rgba(223,233,218,0.42)';
+                    ctx.fillRect(26, 920, 3, 82);
+                    for (let x = 145; x < 494; x += 116) {
+                        ctx.fillStyle = 'rgba(9,20,25,0.85)';
+                        ctx.fillRect(x, 912, 5, 104);
+                    }
                 } else {
                     // Mombasa Swahili Coral-Stone & Arched Facade
-                    ctx.fillStyle = '#f5f0e6';
+                    const coral = ctx.createLinearGradient(0, 0, 512, 0);
+                    coral.addColorStop(0, '#b8a993');
+                    coral.addColorStop(0.18, '#e7ddc9');
+                    coral.addColorStop(0.86, '#dbceb8');
+                    coral.addColorStop(1, '#9c8d77');
+                    ctx.fillStyle = coral;
                     ctx.fillRect(0, 0, 512, 1024);
-                    ctx.fillStyle = '#0284c7';
-                    ctx.fillRect(0, 0, 512, 36);
+                    for (let i = 0; i < 3400; i++) {
+                        ctx.fillStyle = `rgba(73,58,40,${Math.random() * 0.045})`;
+                        ctx.fillRect(Math.random() * 512, Math.random() * 1024, 1 + Math.random() * 2, 1 + Math.random() * 2);
+                    }
+                    ctx.fillStyle = '#e8e0d1';
+                    ctx.fillRect(0, 36, 512, 12);
+                    ctx.fillStyle = '#64837c';
+                    ctx.fillRect(0, 0, 512, 34);
                     for (let y = 90; y < 940; y += 170) {
                         for (let x = 32; x < 460; x += 155) {
-                            ctx.fillStyle = '#1e293b';
+                            ctx.fillStyle = 'rgba(72,61,48,0.65)';
                             ctx.beginPath();
-                            ctx.arc(x + 55, y + 50, 52, Math.PI, 0);
-                            ctx.lineTo(x + 107, y + 130);
-                            ctx.lineTo(x + 3, y + 130);
+                            ctx.arc(x + 55, y + 50, 53, Math.PI, 0);
+                            ctx.lineTo(x + 108, y + 132);
+                            ctx.lineTo(x + 2, y + 132);
                             ctx.closePath();
                             ctx.fill();
+                            const archGlass = ctx.createLinearGradient(x, y + 28, x + 108, y + 130);
+                            archGlass.addColorStop(0, '#778e8d');
+                            archGlass.addColorStop(0.45, '#263b3d');
+                            archGlass.addColorStop(1, '#111d21');
+                            ctx.fillStyle = archGlass;
+                            ctx.beginPath();
+                            ctx.arc(x + 55, y + 50, 46, Math.PI, 0);
+                            ctx.lineTo(x + 101, y + 126);
+                            ctx.lineTo(x + 9, y + 126);
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.fillStyle = 'rgba(237,225,197,0.42)';
+                            ctx.fillRect(x + 52, y + 50, 4, 77);
+                            ctx.fillRect(x + 8, y + 126, 94, 5);
                         }
                     }
+                    ctx.fillStyle = 'rgba(86,74,57,0.18)';
+                    for (let y = 255; y < 1000; y += 170) ctx.fillRect(0, y, 512, 5);
                 }
 
                 const tex = new THREE.CanvasTexture(c);
@@ -1213,10 +1352,12 @@ Check your Browserslist config to be sure that your targets are set up correctly
                 const coastalTex = RealismAssets.createBuildingFacadeTexture('coastal');
 
                 const facadeMats = [
-                    new THREE.MeshStandardMaterial({ map: glassTex, roughness: 0.2, metalness: 0.7 }),
-                    new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.65, metalness: 0.1 }),
-                    new THREE.MeshStandardMaterial({ map: coastalTex, roughness: 0.6, metalness: 0.1 })
+                    new THREE.MeshStandardMaterial({ map: glassTex, roughness: 0.3, metalness: 0.28 }),
+                    new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.78, metalness: 0.02 }),
+                    new THREE.MeshStandardMaterial({ map: coastalTex, roughness: 0.86, metalness: 0.01 })
                 ];
+                const facadeTrimMat = new THREE.MeshStandardMaterial({ color: 0xa6aaa2, roughness: 0.68, metalness: 0.18 });
+                const roofServiceMat = new THREE.MeshStandardMaterial({ color: 0x888c83, roughness: 0.9, metalness: 0.04 });
 
                 for (let i = 0; i < 42; i++) {
                     const zPos = -i * 16;
@@ -1254,13 +1395,36 @@ Check your Browserslist config to be sure that your targets are set up correctly
                             bldg.castShadow = true;
                             bldg.receiveShadow = true;
 
-                            // Roof parapet & water tank (Iconic Kenyan rooftop detail)
-                            const tank = new THREE.Mesh(
-                                new THREE.CylinderGeometry(1.1, 1.1, 2.2, 12),
-                                new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5 })
+                            // Clean slab cap, roof plant and water storage make the skyline read as built space.
+                            const roofCap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 0.32, d + 0.3), facadeTrimMat);
+                            roofCap.position.y = h + 0.1;
+                            const plantRoom = new THREE.Mesh(
+                                new THREE.BoxGeometry(w * (isTower ? 0.3 : 0.38), isTower ? 1.8 : 1.1, d * 0.3),
+                                roofServiceMat
                             );
-                            tank.position.set(2, h + 1.1, 2);
-                            group.add(bldg, tank);
+                            plantRoom.position.set(-w * 0.18, h + (isTower ? 1.2 : 0.85), -d * 0.16);
+
+                            // Towers use restrained vertical fins and a rooftop louver enclosure for scale.
+                            if (isTower) {
+                                const finGeometry = new THREE.BoxGeometry(0.24, h + 0.15, 0.36);
+                                const leftFin = new THREE.Mesh(finGeometry, facadeTrimMat);
+                                leftFin.position.set(-w * 0.43, h / 2, d / 2 + 0.08);
+                                const rightFin = new THREE.Mesh(finGeometry, facadeTrimMat);
+                                rightFin.position.set(w * 0.43, h / 2, d / 2 + 0.08);
+                                const louver = new THREE.Mesh(new THREE.BoxGeometry(w * 0.24, 1.3, 0.16), roofServiceMat);
+                                louver.position.set(w * 0.16, h - 1.1, d / 2 + 0.1);
+                                group.add(leftFin, rightFin, louver);
+                            }
+
+                            // Roof water tank and service volume are common details on Kenyan town buildings.
+                            const tank = new THREE.Mesh(
+                                new THREE.CylinderGeometry(1.05, 1.05, 2.1, 16),
+                                new THREE.MeshStandardMaterial({ color: 0x29383a, roughness: 0.62, metalness: 0.12 })
+                            );
+                            tank.position.set(w * 0.27, h + 1.36, d * 0.22);
+                            const roofVent = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 1.4), roofServiceMat);
+                            roofVent.position.set(w * 0.34, h + 0.5, -d * 0.28);
+                            group.add(bldg, roofCap, plantRoom, tank, roofVent);
                         } else {
                             // Realistic East African Acacia / Highland Tree + Highway Streetlight
                             const trunk = new THREE.Mesh(
