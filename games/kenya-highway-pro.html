@@ -1,0 +1,2482 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KENYA HIGHWAY PRO // Realistic 3D Truck & Car Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Orbitron', 'sans-serif'],
+                        sans: ['Rajdhani', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #070b12;
+            font-family: 'Rajdhani', sans-serif;
+            color: #f8fafc;
+        }
+        #game-canvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+            touch-action: none;
+        }
+        .hud-panel {
+            background: rgba(10, 15, 25, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+        }
+        .kenya-bar {
+            height: 3px;
+            background: linear-gradient(90deg, #000000 0%, #000000 30%, #ffffff 32%, #bb0000 34%, #bb0000 66%, #ffffff 68%, #006600 70%, #006600 100%);
+        }
+        .btn-press {
+            transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease;
+        }
+        .btn-press:active, .btn-press.active {
+            transform: scale(0.94);
+        }
+
+        /* Realistic Metallic Foot Pedals */
+        .pedal-metal {
+            background: linear-gradient(180deg, #334155 0%, #1e293b 45%, #0f172a 100%);
+            border: 2px solid #64748b;
+            box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 6px 16px rgba(0,0,0,0.75);
+        }
+        .pedal-metal:active, .pedal-metal.active {
+            transform: perspective(300px) rotateX(16deg) scale(0.96);
+            border-color: #38bdf8;
+        }
+
+        #traffic-status-pill { transition: border-color .25s ease, color .25s ease; }
+        #traffic-status-pill[data-state="GREEN"] { border-color: rgba(52, 211, 153, .7); color: #a7f3d0; }
+        #traffic-status-pill[data-state="AMBER"] { border-color: rgba(251, 191, 36, .8); color: #fde68a; }
+        #traffic-status-pill[data-state="RED"] { border-color: rgba(251, 113, 133, .8); color: #fecdd3; }
+
+        /* Keep the driving controls clear on short landscape phone screens. */
+        @media screen and (orientation: landscape) and (max-height: 520px) {
+            header { top: 4px !important; }
+            footer { bottom: 4px !important; }
+            #ui-wheel-container { width: 96px !important; height: 96px !important; }
+            #pedal-brake { height: 68px !important; }
+            #pedal-gas { height: 88px !important; }
+            footer .hud-panel { padding-top: 5px !important; padding-bottom: 5px !important; }
+            #traffic-status-pill { top: 3.45rem !important; }
+        }
+
+        /* Portrait Orientation Advisory Banner (Encourages Landscape on Phones) */
+        @media screen and (orientation: portrait) and (max-width: 768px) {
+            #portrait-banner {
+                display: flex !important;
+            }
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(7, 11, 18, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.4); border-radius: 999px; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Photorealistic WebGL Viewport -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Portrait Orientation Prompt Banner (Non-blocking, dismissible) -->
+    <div id="portrait-banner" class="hidden fixed top-16 left-3 right-3 z-50 hud-panel rounded-2xl px-4 py-2.5 border-amber-400/50 items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 text-xs font-mono text-amber-200">
+            <span class="text-xl">📱🔄</span>
+            <span>ROTATE TO <strong>LANDSCAPE</strong> FOR FULL CABIN & HIGHWAY VIEW</span>
+        </div>
+        <button onclick="Sim.requestLandscapeFullscreen()" class="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-display font-bold text-[11px] shrink-0">
+            LANDSCAPE
+        </button>
+    </div>
+
+    <!-- Live road signal indicator -->
+    <div id="traffic-status-pill" data-state="GREEN" class="fixed top-16 left-1/2 -translate-x-1/2 z-30 hud-panel rounded-full px-3 py-1 border font-mono text-[10px] sm:text-xs font-bold tracking-wide pointer-events-none whitespace-nowrap">
+        🚦 <span id="traffic-status-label">NEXT SIGNAL: GREEN</span>
+    </div>
+
+    <!-- Floating Toast Feed -->
+    <div id="toast-feed" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 pointer-events-none"></div>
+
+    <!-- ===================================================================== -->
+    <!-- TOP LANDSCAPE AUTOMOTIVE HUD BAR                                      -->
+    <!-- ===================================================================== -->
+    <header class="fixed top-2 left-2.5 right-2.5 z-30 pointer-events-none flex items-center justify-between gap-2">
+        
+        <!-- Left: Kenyan Highway Route & County GPS Pill -->
+        <div class="hud-panel rounded-2xl overflow-hidden pointer-events-auto shrink-0 max-w-[44vw] sm:max-w-sm">
+            <div class="kenya-bar"></div>
+            <div class="px-3 py-1.5 flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-950 border border-emerald-400/60 flex flex-col items-center justify-center shrink-0">
+                    <span class="text-[8px] font-mono text-emerald-300 leading-none">KeNHA</span>
+                    <span id="hud-hwy" class="font-display font-black text-xs text-white">A104</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span id="hud-county" class="font-display font-bold text-xs sm:text-sm text-white truncate">UASIN GISHU COUNTY</span>
+                    </div>
+                    <div id="hud-route" class="text-[11px] font-mono text-sky-300 truncate">ELDORET → NAKURU → NAIROBI</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Compact Distance & Cargo Telemetry (Landscape Wide) -->
+        <div class="hud-panel rounded-2xl px-3.5 py-1.5 pointer-events-auto hidden md:flex flex-col min-w-[270px] lg:min-w-[330px]">
+            <div class="flex justify-between text-[10px] font-mono">
+                <span id="hud-town" class="text-emerald-300 font-bold">SECTOR: ELDORET CBD</span>
+                <span id="hud-dist" class="text-amber-300 font-bold">312.0 KM LEFT</span>
+            </div>
+            <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden my-1 border border-slate-700">
+                <div id="hud-progress" class="h-full bg-gradient-to-r from-emerald-500 via-sky-400 to-amber-400 transition-all duration-200" style="width: 5%"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-mono text-slate-300">
+                <span>CARGO: <strong id="hud-cargo" class="text-emerald-400">100%</strong></span>
+                <span>PAYOUT: <strong id="hud-payout" class="text-amber-300">KES 168,000</strong></span>
+            </div>
+        </div>
+
+        <!-- Right: Steering Mode Switcher, 360° Camera, 47-County Map & Landscape Fullscreen -->
+        <div class="hud-panel rounded-2xl p-1.5 pointer-events-auto flex items-center gap-1 sm:gap-1.5">
+            <!-- Steering Mode Selector (WHEEL / TILT / KEYS) -->
+            <button onclick="Controls.cycleSteeringMode()" id="btn-steer-mode" title="Switch Steering Mode: Rotary Wheel / Gyro Tilt / Keys"
+                class="btn-press px-2.5 py-1.5 rounded-xl bg-sky-500/25 border border-sky-400/60 text-sky-200 font-display font-bold text-[11px] flex items-center gap-1">
+                <span id="steer-mode-icon">☸️</span>
+                <span id="steer-mode-label">WHEEL</span>
+            </button>
+
+            <!-- 360° Orbit & Camera Mode Selector -->
+            <button onclick="Sim.cycleCamera()" id="btn-cam-mode" title="Switch 3D Camera (Chase / 360° Orbit / Cockpit / Hood)"
+                class="btn-press px-2.5 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/50 text-amber-200 font-display font-bold text-[11px] flex items-center gap-1">
+                <span>🎥</span>
+                <span id="cam-mode-label">CHASE</span>
+            </button>
+
+            <!-- 47 Kenyan Counties GPS Map -->
+            <button onclick="UI.toggleMap()" title="Open 47 Kenyan Counties & Highways GPS (M)"
+                class="btn-press px-2.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 font-display font-bold text-[11px] flex items-center gap-1">
+                <span>🗺️</span>
+                <span class="hidden sm:inline">47 COUNTIES</span>
+            </button>
+
+            <!-- Android app download -->
+            <a href="https://nsc9ab-ops.github.io/crypt-secure-workspace/downloads/ScottFN.apk" download="ScottFN.apk" title="Download the Android app"
+                class="btn-press px-2 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 font-display font-bold text-[11px] flex items-center gap-1">
+                <span>📱</span><span class="hidden sm:inline">APP</span>
+            </a>
+
+            <!-- Fullscreen Landscape Toggle -->
+            <button onclick="Sim.requestLandscapeFullscreen()" title="Fullscreen Landscape View"
+                class="btn-press px-2 py-1.5 rounded-xl bg-slate-800/90 border border-slate-600 text-slate-200 font-mono text-xs font-bold">
+                ⛶
+            </button>
+
+            <!-- Settings & Graphics Clarity -->
+            <button onclick="UI.toggleSettings()" title="Visual Clarity, Time of Day & Controls"
+                class="btn-press px-2 py-1.5 rounded-xl bg-slate-800/90 border border-slate-600 text-slate-200 font-mono text-xs font-bold">
+                ⚙️
+            </button>
+        </div>
+    </header>
+
+    <!-- ===================================================================== -->
+    <!-- 360° ORBIT CAMERA INSPECTION HINT BANNER (Shown in 360° Orbit Mode)    -->
+    <!-- ===================================================================== -->
+    <div id="orbit-hint-pill" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-30 hud-panel rounded-full px-4 py-1.5 border-amber-400/50 flex items-center gap-3 text-xs font-mono text-amber-200">
+        <span>🔄 <strong>360° 3D SHOWROOM VIEW:</strong> DRAG TO ROTATE • PINCH/SCROLL TO ZOOM</span>
+        <button onclick="Sim.cycleOrbitTarget()" class="px-2.5 py-0.5 rounded-full bg-amber-500 text-slate-950 font-bold text-[11px]">
+            TARGET: <span id="orbit-target-label">SEMI-TRUCK</span>
+        </button>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- BOTTOM LANDSCAPE DRIVING COCKPIT CONTROLS                             -->
+    <!-- ===================================================================== -->
+    <footer class="fixed bottom-2.5 left-3 right-3 z-30 pointer-events-none flex items-end justify-between gap-2">
+        
+        <!-- LEFT ZONE: DYNAMIC STEERING INTERFACE (ROTARY WHEEL / TILT METER / ARROWS) -->
+        <div class="pointer-events-auto flex flex-col items-start gap-1.5">
+            
+            <!-- MODE A: INTERACTIVE 3D-STYLED ROTARY STEERING WHEEL -->
+            <div id="ui-wheel-container" class="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center touch-none">
+                <!-- Realistic Leather & Chrome Steering Wheel SVG -->
+                <svg id="steering-wheel-svg" viewBox="0 0 200 200" class="w-full h-full drop-shadow-[0_10px_20px_rgba(0,0,0,0.85)] cursor-grab active:cursor-grabbing">
+                    <defs>
+                        <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0%" stop-color="#334155"/>
+                            <stop offset="50%" stop-color="#0f172a"/>
+                            <stop offset="100%" stop-color="#1e293b"/>
+                        </linearGradient>
+                        <linearGradient id="spokeGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#cbd5e1"/>
+                            <stop offset="50%" stop-color="#64748b"/>
+                            <stop offset="100%" stop-color="#334155"/>
+                        </linearGradient>
+                    </defs>
+                    <!-- Outer Leather Rim -->
+                    <circle cx="100" cy="100" r="84" fill="none" stroke="url(#rimGrad)" stroke-width="20"/>
+                    <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="2"/>
+                    <!-- Top Center Alignment Stripe (Kenyan Red/Green Accent) -->
+                    <rect x="95" y="6" width="10" height="20" rx="3" fill="#ef4444"/>
+                    <!-- Brushed Aluminum Spokes -->
+                    <path d="M 24 94 L 74 94 L 78 112 L 26 112 Z" fill="url(#spokeGrad)"/>
+                    <path d="M 176 94 L 126 94 L 122 112 L 174 112 Z" fill="url(#spokeGrad)"/>
+                    <path d="M 88 122 L 112 122 L 108 176 L 92 176 Z" fill="url(#spokeGrad)"/>
+                    <!-- Center Airbag Hub -->
+                    <circle cx="100" cy="100" r="32" fill="#0f172a" stroke="#475569" stroke-width="3"/>
+                    <circle cx="100" cy="100" r="24" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4 3"/>
+                    <text x="100" y="97" text-anchor="middle" fill="#f8fafc" font-family="Orbitron" font-weight="900" font-size="10">KENYA</text>
+                    <text x="100" y="109" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-weight="700" font-size="8">PRO-TRUCK</text>
+                </svg>
+                <div class="absolute -top-2 right-0 px-1.5 py-0.5 rounded bg-slate-950/90 border border-slate-700 font-mono text-[10px] text-sky-300">
+                    <span id="wheel-deg-readout">0°</span>
+                </div>
+            </div>
+
+            <!-- MODE B: GYROSCOPE TILT STEERING HORIZON & CALIBRATOR -->
+            <div id="ui-tilt-container" class="hidden hud-panel rounded-2xl p-3 w-48 sm:w-56 flex flex-col gap-2 border-sky-400/50">
+                <div class="flex items-center justify-between text-[10px] font-mono">
+                    <span class="text-sky-300 font-bold">📐 TILT GYRO STEER</span>
+                    <span id="tilt-angle-val" class="text-white font-bold">0.0°</span>
+                </div>
+                <!-- Visual Artificial Horizon Bar -->
+                <div class="relative w-full h-8 bg-slate-950 rounded-xl border border-slate-700 overflow-hidden flex items-center justify-center touch-none">
+                    <div class="w-0.5 h-full bg-slate-600"></div>
+                    <div id="tilt-horizon-bar" class="absolute w-24 h-1.5 rounded-full bg-gradient-to-r from-emerald-400 via-sky-400 to-amber-400 transition-transform duration-75 touch-none" style="transform: rotate(0deg)"></div>
+                </div>
+                <div class="text-[9px] text-slate-400 text-center">TILT PHONE OR DRAG THE BAR</div>
+                <div class="flex gap-1.5">
+                    <button onclick="Controls.calibrateTilt()" class="btn-press flex-1 py-1.5 rounded-lg bg-sky-500/25 border border-sky-400/50 text-sky-200 font-mono text-[10px] font-bold">
+                        🎯 ZERO CENTER
+                    </button>
+                    <button onclick="Controls.requestGyroPermission()" id="btn-enable-gyro" class="btn-press py-1.5 px-2 rounded-lg bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 font-mono text-[10px] font-bold">
+                        📡 SENSOR
+                    </button>
+                </div>
+            </div>
+
+            <!-- MODE C: CLASSIC TOUCH BUTTONS -->
+            <div id="ui-buttons-container" class="hidden flex items-center gap-2">
+                <button id="btn-steer-left" class="btn-press w-16 h-14 sm:w-20 sm:h-16 rounded-2xl hud-panel border-sky-400/50 flex items-center justify-center text-sky-300 text-2xl font-black">◀</button>
+                <button id="btn-steer-right" class="btn-press w-16 h-14 sm:w-20 sm:h-16 rounded-2xl hud-panel border-sky-400/50 flex items-center justify-center text-sky-300 text-2xl font-black">▶</button>
+            </div>
+        </div>
+
+        <!-- CENTER ZONE: DIGITAL DASHBOARD INSTRUMENT CLUSTER -->
+        <div class="hud-panel rounded-2xl px-3.5 sm:px-5 py-2 pointer-events-auto flex items-center gap-3 sm:gap-5">
+            <!-- Quick Utility Switches -->
+            <div class="hidden sm:flex flex-col gap-1">
+                <button onclick="Sim.triggerHorn()" class="btn-press px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-200 font-mono text-[10px] font-bold">📯 HORN</button>
+                <button onclick="Sim.toggleHeadlights()" class="btn-press px-2.5 py-1 rounded-lg bg-sky-500/20 border border-sky-400/50 text-sky-200 font-mono text-[10px] font-bold">💡 LIGHTS</button>
+            </div>
+
+            <!-- Gear Indicator -->
+            <div class="text-center">
+                <div class="text-[9px] font-mono text-slate-400">GEAR</div>
+                <div id="hud-gear" class="font-display font-black text-xl sm:text-2xl text-emerald-400">D1</div>
+                <div class="text-[8px] font-mono text-slate-400">12-AUTO</div>
+            </div>
+
+            <!-- Speedometer -->
+            <div class="text-center min-w-[78px] sm:min-w-[96px]">
+                <div id="hud-speed" class="font-display font-black text-3xl sm:text-4xl text-white leading-none">0</div>
+                <div class="text-[9px] font-mono text-sky-400 tracking-widest mt-0.5">KM/H</div>
+                <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden mt-1">
+                    <div id="hud-rpm" class="h-full bg-gradient-to-r from-emerald-400 via-sky-400 to-rose-500" style="width: 10%"></div>
+                </div>
+            </div>
+
+            <!-- Traffic Camera / Escort Car Switcher -->
+            <div class="hidden md:flex flex-col gap-1">
+                <button onclick="Sim.toggleAutopilot()" id="btn-lane-assist" class="btn-press px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 font-mono text-[10px] font-bold">🛣️ LANE ASSIST</button>
+                <button onclick="Sim.recoverTruck()" class="btn-press px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-slate-300 font-mono text-[10px] font-bold">🔄 RECOVER</button>
+            </div>
+        </div>
+
+        <!-- RIGHT ZONE: REALISTIC METAL BRAKE & ACCELERATOR PEDALS -->
+        <div class="pointer-events-auto flex items-end gap-2 sm:gap-3">
+            <!-- Brake / Reverse Pedal -->
+            <button id="pedal-brake"
+                class="pedal-metal w-14 h-20 sm:w-16 sm:h-24 rounded-xl flex flex-col items-center justify-between py-2 text-rose-300">
+                <span class="w-8 h-1 rounded-full bg-rose-500"></span>
+                <span class="font-display font-black text-[11px] tracking-wider">BRAKE</span>
+                <div class="w-8 space-y-1 opacity-50">
+                    <div class="h-0.5 bg-slate-400"></div>
+                    <div class="h-0.5 bg-slate-400"></div>
+                    <div class="h-0.5 bg-slate-400"></div>
+                </div>
+            </button>
+
+            <!-- Tall Throttle / Gas Pedal -->
+            <button id="pedal-gas"
+                class="pedal-metal w-16 h-28 sm:w-20 sm:h-32 rounded-xl flex flex-col items-center justify-between py-2.5 text-emerald-300 border-emerald-400/60">
+                <span class="w-10 h-1 rounded-full bg-emerald-400"></span>
+                <span class="font-display font-black text-xs tracking-wider">DRIVE</span>
+                <div class="w-10 space-y-1.5 opacity-60">
+                    <div class="h-0.5 bg-slate-300"></div>
+                    <div class="h-0.5 bg-slate-300"></div>
+                    <div class="h-0.5 bg-slate-300"></div>
+                    <div class="h-0.5 bg-slate-300"></div>
+                </div>
+            </button>
+        </div>
+    </footer>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 1: ALL 47 KENYAN COUNTIES & HIGHWAYS GPS NAVIGATOR              -->
+    <!-- ===================================================================== -->
+    <div id="modal-map" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+        <div class="hud-panel rounded-3xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border-emerald-400/40">
+            <div class="kenya-bar"></div>
+            <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <div class="text-[11px] font-mono text-emerald-400">REPUBLIC OF KENYA // KeNHA NATIONAL HIGHWAY NETWORK (47 COUNTIES)</div>
+                    <h2 class="font-display font-black text-lg sm:text-xl text-white">SELECT KENYAN HIGHWAY OR COUNTY DESTINATION</h2>
+                </div>
+                <button onclick="UI.toggleMap()" class="btn-press px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 font-mono text-xs font-bold">✕ CLOSE [M]</button>
+            </div>
+
+            <div class="p-4 sm:p-5 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Major Kenyan Highway Corridors -->
+                <div class="lg:col-span-5 space-y-2">
+                    <div class="text-xs font-mono text-sky-400">// MAJOR KENYAN HIGHWAYS</div>
+                    <div id="corridor-list" class="space-y-2"></div>
+                </div>
+
+                <!-- All 47 Counties Searchable Grid -->
+                <div class="lg:col-span-7 flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-xs font-mono text-emerald-400">// ALL 47 COUNTIES (001–047)</span>
+                        <input type="text" id="county-search" oninput="UI.filterCounties()" placeholder="Search county, town, A104..."
+                            class="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs font-mono text-white focus:outline-none focus:border-sky-400">
+                    </div>
+                    <div id="counties-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[340px] overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL 2: GRAPHICS CLARITY, TIME OF DAY & STEERING SETTINGS            -->
+    <!-- ===================================================================== -->
+    <div id="modal-settings" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="hud-panel rounded-3xl w-full max-w-lg overflow-hidden">
+            <div class="kenya-bar"></div>
+            <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+                <h3 class="font-display font-bold text-base text-white">REALISM, CLARITY & CONTROLS</h3>
+                <button onclick="UI.toggleSettings()" class="px-3 py-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono">✕</button>
+            </div>
+                <div class="p-5 space-y-4 text-xs font-mono">
+                <div class="p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-emerald-200 font-bold">ANDROID APP DOWNLOAD</div>
+                        <div class="text-[10px] text-slate-400 mt-0.5">ScottFN APK installer for compatible Android devices.</div>
+                    </div>
+                    <a href="https://nsc9ab-ops.github.io/crypt-secure-workspace/downloads/ScottFN.apk" download="ScottFN.apk" rel="noopener"
+                        class="btn-press shrink-0 px-3 py-2 rounded-lg bg-emerald-500 text-slate-950 font-display font-black text-[10px]">⬇ GET APK</a>
+                </div>
+                <!-- Time of Day / Weather -->
+                <div>
+                    <label class="block text-sky-300 mb-1.5">KENYAN SKY & ATMOSPHERE</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="Sim.setWeather(0)" class="py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-sky-400 font-bold">☀️ DAYLIGHT</button>
+                        <button onclick="Sim.setWeather(1)" class="py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-amber-400 font-bold">🌅 GOLDEN DUSK</button>
+                        <button onclick="Sim.setWeather(2)" class="py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-indigo-400 font-bold">🌙 NAIROBI NIGHT</button>
+                    </div>
+                </div>
+
+                <!-- Resolution Clarity -->
+                <div>
+                    <label class="block text-emerald-300 mb-1.5">RENDERING RESOLUTION CLARITY</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="Sim.setClarity(1.0)" class="py-2 rounded-xl bg-slate-900 border border-slate-700 font-bold">1.0x FAST</button>
+                        <button onclick="Sim.setClarity(1.5)" class="py-2 rounded-xl bg-sky-500/20 border border-sky-400 text-sky-200 font-bold">1.5x CRISP HD</button>
+                        <button onclick="Sim.setClarity(2.0)" class="py-2 rounded-xl bg-slate-900 border border-slate-700 font-bold">2.0x ULTRA 4K</button>
+                    </div>
+                </div>
+
+                <!-- Steering Sensitivity -->
+                <div>
+                    <div class="flex justify-between text-slate-300 mb-1">
+                        <span>STEERING & TILT SENSITIVITY</span>
+                        <span id="sens-readout" class="text-sky-300">1.2x</span>
+                    </div>
+                    <input type="range" min="0.6" max="2.2" step="0.1" value="1.2" oninput="Controls.setSensitivity(this.value)" class="w-full accent-sky-400">
+                </div>
+
+                <!-- Controls Summary -->
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 space-y-1">
+                    <div><strong class="text-white">WHEEL MODE:</strong> Drag the rotary steering wheel left/right.</div>
+                    <div><strong class="text-white">TILT MODE:</strong> Tilt phone/tablet left/right (or drag horizon bar on PC).</div>
+                    <div><strong class="text-white">360° ORBIT CAM:</strong> Press [V] or Camera button to inspect Truck & Cars in 3D.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT: REALISTIC PBR 3D ENGINE, KENYAN BUILDINGS & STEERING      -->
+    <!-- ===================================================================== -->
+    <script>
+        /**
+         * 1. COMPLETE KENYAN 47-COUNTY & HIGHWAY DATABASE
+         */
+        const KENYA_NETWORK = {
+            corridors: [
+                { id: 'A104', code: 'A104', name: 'Eldoret → Nakuru → Nairobi Expressway', distance: 312, payout: 168000, biome: 'highland', counties: ['Uasin Gishu', 'Kericho', 'Nakuru', 'Kiambu', 'Nairobi'] },
+                { id: 'A109', code: 'A109', name: 'Mombasa Port → Voi → Machakos → Nairobi', distance: 485, payout: 195000, biome: 'coastal', counties: ['Mombasa', 'Kilifi', 'Kwale', 'Taita-Taveta', 'Makueni', 'Machakos', 'Kajiado', 'Nairobi'] },
+                { id: 'A1', code: 'A1', name: 'Kisumu Lakeport → Kakamega → Kitale → Lodwar', distance: 520, payout: 225000, biome: 'highland', counties: ['Migori', 'Homa Bay', 'Kisii', 'Nyamira', 'Kisumu', 'Siaya', 'Vihiga', 'Nandi', 'Kakamega', 'Bungoma', 'Busia', 'Trans-Nzoia', 'West Pokot', 'Turkana'] },
+                { id: 'A2', code: 'A2', name: 'Nairobi → Thika → Nyeri → Isiolo → Marsabit', distance: 540, payout: 240000, biome: 'metropolis', counties: ['Nairobi', 'Murang\'a', 'Kirinyaga', 'Nyeri', 'Nyandarua', 'Laikipia', 'Samburu', 'Isiolo', 'Marsabit'] },
+                { id: 'A3_B8', code: 'A3/B8', name: 'Lamu Port → Malindi → Garissa → Mandera', distance: 680, payout: 280000, biome: 'coastal', counties: ['Lamu', 'Tana River', 'Garissa', 'Kitui', 'Embu', 'Tharaka-Nithi', 'Meru', 'Wajir', 'Mandera'] },
+                { id: 'B3', code: 'B3', name: 'Narok Mara → Bomet → Kisii → Kisumu', distance: 265, payout: 135000, biome: 'savanna', counties: ['Narok', 'Bomet', 'Baringo', 'Elgeyo-Marakwet', 'Kisii', 'Kisumu'] }
+            ],
+            counties47: [
+                { code: '001', name: 'Mombasa', town: 'Kilindini Port & Nyali', hwy: 'A109', biome: 'coastal' },
+                { code: '002', name: 'Kwale', town: 'Diani & Ukunda', hwy: 'A14', biome: 'coastal' },
+                { code: '003', name: 'Kilifi', town: 'Kilifi Bridge & Malindi', hwy: 'B8', biome: 'coastal' },
+                { code: '004', name: 'Tana River', town: 'Hola & Garsen', hwy: 'B8', biome: 'savanna' },
+                { code: '005', name: 'Lamu', town: 'Lamu Port Corridor', hwy: 'C112', biome: 'coastal' },
+                { code: '006', name: 'Taita-Taveta', town: 'Voi & Taveta', hwy: 'A109', biome: 'savanna' },
+                { code: '007', name: 'Garissa', town: 'Garissa Tana Bridge', hwy: 'A3', biome: 'savanna' },
+                { code: '008', name: 'Wajir', town: 'Wajir Highway Hub', hwy: 'B9', biome: 'savanna' },
+                { code: '009', name: 'Mandera', town: 'Mandera Border Post', hwy: 'B9', biome: 'savanna' },
+                { code: '010', name: 'Marsabit', town: 'Marsabit Trans-North', hwy: 'A2', biome: 'savanna' },
+                { code: '011', name: 'Isiolo', town: 'Isiolo Junction', hwy: 'A2', biome: 'savanna' },
+                { code: '012', name: 'Meru', town: 'Meru Town & Makutano', hwy: 'B6', biome: 'highland' },
+                { code: '013', name: 'Tharaka-Nithi', town: 'Chuka Highway', hwy: 'B6', biome: 'highland' },
+                { code: '014', name: 'Embu', town: 'Embu & Sagana', hwy: 'B6', biome: 'highland' },
+                { code: '015', name: 'Kitui', town: 'Kitui & Mwingi', hwy: 'A3', biome: 'savanna' },
+                { code: '016', name: 'Machakos', town: 'Mlolongo & Konza', hwy: 'A109', biome: 'metropolis' },
+                { code: '017', name: 'Makueni', town: 'Mtito Andei & Emali', hwy: 'A109', biome: 'savanna' },
+                { code: '018', name: 'Nyandarua', town: 'Ol Kalou & Nyahururu', hwy: 'B5', biome: 'highland' },
+                { code: '019', name: 'Nyeri', town: 'Nyeri & Karatina', hwy: 'A2', biome: 'highland' },
+                { code: '020', name: 'Kirinyaga', town: 'Kerugoya & Mwea', hwy: 'A2', biome: 'highland' },
+                { code: '021', name: 'Murang\'a', town: 'Kenol & Makuyu', hwy: 'A2', biome: 'highland' },
+                { code: '022', name: 'Kiambu', town: 'Thika Superhighway & Ruiru', hwy: 'A2', biome: 'metropolis' },
+                { code: '023', name: 'Turkana', town: 'Lodwar & Kainuk', hwy: 'A1', biome: 'savanna' },
+                { code: '024', name: 'West Pokot', town: 'Kapenguria & Makutano', hwy: 'A1', biome: 'highland' },
+                { code: '025', name: 'Samburu', town: 'Maralal & Archer\'s Post', hwy: 'C77', biome: 'savanna' },
+                { code: '026', name: 'Trans-Nzoia', town: 'Kitale Agro-Hub', hwy: 'A1', biome: 'highland' },
+                { code: '027', name: 'Uasin Gishu', town: 'Eldoret CBD & Uganda Rd', hwy: 'A104', biome: 'highland' },
+                { code: '028', name: 'Elgeyo-Marakwet', town: 'Iten Escarpment', hwy: 'C51', biome: 'highland' },
+                { code: '029', name: 'Nandi', town: 'Kapsabet & Mosoriot', hwy: 'C39', biome: 'highland' },
+                { code: '030', name: 'Baringo', town: 'Kabarnet & Marigat', hwy: 'B4', biome: 'savanna' },
+                { code: '031', name: 'Laikipia', town: 'Nanyuki Equator Crossing', hwy: 'A2', biome: 'savanna' },
+                { code: '032', name: 'Nakuru', town: 'Nakuru City & Naivasha', hwy: 'A104', biome: 'highland' },
+                { code: '033', name: 'Narok', town: 'Narok Town & Suswa', hwy: 'B3', biome: 'savanna' },
+                { code: '034', name: 'Kajiado', town: 'Kitengela & Namanga', hwy: 'A104', biome: 'savanna' },
+                { code: '035', name: 'Kericho', town: 'Kericho Green Tea Highway', hwy: 'B1', biome: 'highland' },
+                { code: '036', name: 'Bomet', town: 'Bomet & Sotik', hwy: 'B3', biome: 'highland' },
+                { code: '037', name: 'Kakamega', town: 'Kakamega CBD', hwy: 'A1', biome: 'highland' },
+                { code: '038', name: 'Vihiga', town: 'Mbale & Chavakali', hwy: 'A1', biome: 'highland' },
+                { code: '039', name: 'Bungoma', town: 'Webuye & Bungoma', hwy: 'A104', biome: 'highland' },
+                { code: '040', name: 'Busia', town: 'Malaba & Busia Border', hwy: 'A104', biome: 'highland' },
+                { code: '041', name: 'Siaya', town: 'Bondo & Ugunja', hwy: 'C27', biome: 'coastal' },
+                { code: '042', name: 'Kisumu', town: 'Kisumu Lakeside City', hwy: 'A1', biome: 'coastal' },
+                { code: '043', name: 'Homa Bay', town: 'Homa Bay & Mbita', hwy: 'C19', biome: 'coastal' },
+                { code: '044', name: 'Migori', town: 'Migori & Isebania', hwy: 'A1', biome: 'savanna' },
+                { code: '045', name: 'Kisii', town: 'Kisii Highlands CBD', hwy: 'B3', biome: 'highland' },
+                { code: '046', name: 'Nyamira', town: 'Nyamira Town', hwy: 'B3', biome: 'highland' },
+                { code: '047', name: 'Nairobi', town: 'Nairobi Expressway & CBD', hwy: 'A104', biome: 'metropolis' }
+            ]
+        };
+
+        /**
+         * 2. REALISTIC TURBO-DIESEL WEB AUDIO SYNTHESIZER
+         */
+        const SoundEngine = (() => {
+            let ctx = null, engineOsc = null, subOsc = null, engineGain = null, turboOsc = null, turboGain = null;
+            let ready = false;
+
+            function init() {
+                if (ready) return;
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    ctx = new AudioCtx();
+
+                    engineOsc = ctx.createOscillator();
+                    engineOsc.type = 'sawtooth';
+                    engineOsc.frequency.value = 36;
+
+                    subOsc = ctx.createOscillator();
+                    subOsc.type = 'triangle';
+                    subOsc.frequency.value = 18;
+
+                    const lp = ctx.createBiquadFilter();
+                    lp.type = 'lowpass';
+                    lp.frequency.value = 145;
+
+                    engineGain = ctx.createGain();
+                    engineGain.gain.value = 0;
+
+                    engineOsc.connect(lp);
+                    subOsc.connect(lp);
+                    lp.connect(engineGain);
+                    engineGain.connect(ctx.destination);
+
+                    engineOsc.start();
+                    subOsc.start();
+
+                    turboOsc = ctx.createOscillator();
+                    turboOsc.type = 'sine';
+                    turboOsc.frequency.value = 300;
+                    turboGain = ctx.createGain();
+                    turboGain.gain.value = 0;
+                    turboOsc.connect(turboGain);
+                    turboGain.connect(ctx.destination);
+                    turboOsc.start();
+
+                    ready = true;
+                } catch (e) {}
+            }
+
+            function update(speedKmh) {
+                if (!ready || !ctx) return;
+                if (ctx.state === 'suspended') ctx.resume();
+                const ratio = Math.min(1, Math.abs(speedKmh) / 140);
+                // Gear-stepped diesel RPM simulation
+                const gearRatio = ((Math.abs(speedKmh) % 14) / 14);
+                const baseFreq = 32 + ratio * 38 + gearRatio * 22;
+                engineOsc.frequency.setTargetAtTime(baseFreq, ctx.currentTime, 0.08);
+                subOsc.frequency.setTargetAtTime(baseFreq * 0.5, ctx.currentTime, 0.08);
+                engineGain.gain.setTargetAtTime(0.045 + ratio * 0.06, ctx.currentTime, 0.1);
+
+                turboOsc.frequency.setTargetAtTime(340 + ratio * 650, ctx.currentTime, 0.1);
+                turboGain.gain.setTargetAtTime(ratio * 0.014, ctx.currentTime, 0.1);
+            }
+
+            function playHorn() {
+                init();
+                if (!ctx) return;
+                [233.08, 293.66, 349.23].forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const g = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                    g.gain.setValueAtTime(0.085, ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                    osc.connect(g);
+                    g.connect(ctx.destination);
+                    osc.start(ctx.currentTime + i * 0.02);
+                    osc.stop(ctx.currentTime + 0.52);
+                });
+            }
+
+            function playAirBrake() {
+                init();
+                if (!ctx) return;
+                const len = ctx.sampleRate * 0.25;
+                const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+                const ch = buf.getChannelData(0);
+                for (let i = 0; i < len; i++) ch[i] = Math.random() * 2 - 1;
+                const src = ctx.createBufferSource();
+                src.buffer = buf;
+                const bp = ctx.createBiquadFilter();
+                bp.type = 'bandpass';
+                bp.frequency.value = 2200;
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0.06, ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
+                src.connect(bp);
+                bp.connect(g);
+                g.connect(ctx.destination);
+                src.start();
+            }
+
+            return { init, update, playHorn, playAirBrake };
+        })();
+
+        function showToast(msg, tone = 'sky') {
+            const feed = document.getElementById('toast-feed');
+            const el = document.createElement('div');
+            const colors = {
+                sky: 'border-sky-400 text-sky-100 bg-slate-950/90',
+                emerald: 'border-emerald-400 text-emerald-100 bg-slate-950/90',
+                amber: 'border-amber-400 text-amber-100 bg-slate-950/90',
+                rose: 'border-rose-400 text-rose-100 bg-slate-950/90'
+            };
+            el.className = `px-4 py-1.5 rounded-full border font-display font-bold text-xs tracking-wider shadow-xl transition-all duration-300 ${colors[tone] || colors.sky}`;
+            el.textContent = msg;
+            feed.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 2400);
+        }
+
+        /**
+         * 3. PHOTOREALISTIC PROCEDURAL TEXTURE & BUILDING FACADE GENERATOR
+         */
+        const RealismAssets = (() => {
+            // Realistic Kenyan Tarmac Highway Texture with Aggregate Grain & Yellow/White Markings
+            function createAsphaltTexture() {
+                const c = document.createElement('canvas');
+                c.width = 1024;
+                c.height = 1024;
+                const ctx = c.getContext('2d');
+
+                ctx.fillStyle = '#1e2229';
+                ctx.fillRect(0, 0, 1024, 1024);
+
+                // Realistic asphalt stone aggregate micro-texture
+                for (let i = 0; i < 24000; i++) {
+                    const x = Math.random() * 1024;
+                    const y = Math.random() * 1024;
+                    const shade = 22 + Math.floor(Math.random() * 26);
+                    ctx.fillStyle = `rgb(${shade},${shade + 2},${shade + 5})`;
+                    ctx.fillRect(x, y, 2, 2);
+                }
+
+                // Subtle tire wear tracks in each lane
+                [165, 385, 635, 855].forEach(lx => {
+                    const grad = ctx.createLinearGradient(lx - 45, 0, lx + 45, 0);
+                    grad.addColorStop(0, 'rgba(0,0,0,0)');
+                    grad.addColorStop(0.5, 'rgba(10,12,16,0.34)');
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(lx - 45, 0, 90, 1024);
+                });
+
+                // Solid White Shoulder Lines
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillRect(42, 0, 14, 1024);
+                ctx.fillRect(968, 0, 14, 1024);
+
+                // Dashed White Lane Dividers
+                ctx.fillStyle = '#e2e8f0';
+                for (let y = 20; y < 1024; y += 128) {
+                    ctx.fillRect(274, y, 10, 68);
+                    ctx.fillRect(740, y, 10, 68);
+                }
+
+                // Kenyan Double Yellow Center Divider Lines
+                ctx.fillStyle = '#eab308';
+                ctx.fillRect(500, 0, 8, 1024);
+                ctx.fillRect(516, 0, 8, 1024);
+
+                const tex = new THREE.CanvasTexture(c);
+                tex.encoding = THREE.sRGBEncoding;
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.anisotropy = 16;
+                return tex;
+            }
+
+            // Realistic Kenyan Architectural Building Facades (Glass Skyscraper, Commercial Plaza, Swahili Coastal, Petrol Station)
+            function createBuildingFacadeTexture(style = 'glass_tower') {
+                const c = document.createElement('canvas');
+                c.width = 512;
+                c.height = 1024;
+                const ctx = c.getContext('2d');
+
+                if (style === 'glass_tower') {
+                    // Nairobi CBD / Upper Hill Modern Curtain-Wall Skyscraper
+                    ctx.fillStyle = '#0f2537';
+                    ctx.fillRect(0, 0, 512, 1024);
+
+                    const cols = 8;
+                    const rows = 20;
+                    const padX = 8, padY = 8;
+                    const w = (512 - padX * (cols + 1)) / cols;
+                    const h = (1024 - padY * (rows + 1)) / rows;
+
+                    for (let r = 0; r < rows; r++) {
+                        for (let col = 0; col < cols; col++) {
+                            const x = padX + col * (w + padX);
+                            const y = padY + r * (h + padY);
+                            const lit = Math.random() > 0.68;
+                            const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+                            if (lit) {
+                                grad.addColorStop(0, '#fef3c7');
+                                grad.addColorStop(1, '#38bdf8');
+                            } else {
+                                grad.addColorStop(0, '#1e3a5f');
+                                grad.addColorStop(1, '#0c192c');
+                            }
+                            ctx.fillStyle = grad;
+                            ctx.fillRect(x, y, w, h);
+                        }
+                    }
+                    // Steel mullions
+                    ctx.fillStyle = '#334155';
+                    for (let i = 0; i <= cols; i++) ctx.fillRect(i * (w + padX), 0, padX, 1024);
+                } else if (style === 'kenyan_plaza') {
+                    // Realistic Kenyan Town Commercial Building (Eldoret / Nakuru / Kisumu Plaza with Ground Shopfronts)
+                    ctx.fillStyle = '#d6cfc2'; // Warm cream/terracotta plaster
+                    ctx.fillRect(0, 0, 512, 1024);
+
+                    // Horizontal concrete floor slabs & balconies
+                    for (let y = 80; y < 860; y += 130) {
+                        ctx.fillStyle = '#8c7f70';
+                        ctx.fillRect(0, y, 512, 18);
+                        // Recessed dark glass windows
+                        for (let x = 24; x < 470; x += 96) {
+                            ctx.fillStyle = '#1e293b';
+                            ctx.fillRect(x, y + 26, 72, 84);
+                            ctx.strokeStyle = '#f8fafc';
+                            ctx.lineWidth = 3;
+                            ctx.strokeRect(x, y + 26, 72, 84);
+                        }
+                    }
+
+                    // Ground Floor Kenyan Retail Shopfronts (Supermarket / Pharmacy / Bank)
+                    ctx.fillStyle = '#065f46';
+                    ctx.fillRect(0, 860, 512, 46);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 26px Rajdhani, sans-serif';
+                    ctx.fillText('KENYA COMMERCIAL PLAZA • SUPERMARKET', 24, 892);
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(18, 912, 476, 104);
+                } else {
+                    // Mombasa Swahili Coral-Stone & Arched Facade
+                    ctx.fillStyle = '#f5f0e6';
+                    ctx.fillRect(0, 0, 512, 1024);
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(0, 0, 512, 36);
+                    for (let y = 90; y < 940; y += 170) {
+                        for (let x = 32; x < 460; x += 155) {
+                            ctx.fillStyle = '#1e293b';
+                            ctx.beginPath();
+                            ctx.arc(x + 55, y + 50, 52, Math.PI, 0);
+                            ctx.lineTo(x + 107, y + 130);
+                            ctx.lineTo(x + 3, y + 130);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                const tex = new THREE.CanvasTexture(c);
+                tex.encoding = THREE.sRGBEncoding;
+                tex.anisotropy = 8;
+                return tex;
+            }
+
+            // Realistic Kenyan Logistics Container Livery
+            function createContainerTexture() {
+                const c = document.createElement('canvas');
+                c.width = 1024;
+                c.height = 512;
+                const ctx = c.getContext('2d');
+
+                // Subtle painted aluminum with restrained panel and light falloff.
+                const base = ctx.createLinearGradient(0, 0, 0, 512);
+                base.addColorStop(0, '#f2f2ef');
+                base.addColorStop(0.72, '#e5e6e3');
+                base.addColorStop(1, '#cfd2d0');
+                ctx.fillStyle = base;
+                ctx.fillRect(0, 0, 1024, 512);
+
+                // Fine trailer ribs, panel seams and soft painted-metal highlights.
+                for (let x = 0; x < 1024; x += 18) {
+                    ctx.fillStyle = x % 36 === 0 ? 'rgba(40,48,52,0.045)' : 'rgba(255,255,255,0.18)';
+                    ctx.fillRect(x, 0, 7, 512);
+                }
+                ctx.strokeStyle = 'rgba(70,80,82,0.16)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(18, 18, 988, 476);
+                ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+                ctx.beginPath(); ctx.moveTo(20, 50); ctx.lineTo(1004, 50); ctx.stroke();
+
+                // Small fleet marking and realistic red/white reflective safety tape.
+                ctx.fillStyle = '#24343a';
+                ctx.font = '700 30px Rajdhani, sans-serif';
+                ctx.fillText('KENYA FREIGHT', 62, 108);
+                ctx.fillStyle = '#64716e';
+                ctx.font = '500 15px JetBrains Mono, monospace';
+                ctx.fillText('A104  •  NAIROBI / NAKURU / ELDORET', 64, 134);
+                ctx.fillStyle = '#b91c1c';
+                ctx.fillRect(0, 474, 1024, 12);
+                for (let x = 0; x < 1024; x += 64) {
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillRect(x, 474, 28, 12);
+                }
+
+                const tex = new THREE.CanvasTexture(c);
+                tex.encoding = THREE.sRGBEncoding;
+                tex.anisotropy = 12;
+                return tex;
+            }
+
+            // Realistic Green KeNHA Overhead Highway Signboard
+            function createRoadSignTexture(countyName, hwyCode, townName) {
+                const c = document.createElement('canvas');
+                c.width = 1024;
+                c.height = 256;
+                const ctx = c.getContext('2d');
+
+                ctx.fillStyle = '#005a32'; // Authentic Kenyan Highway Sign Green
+                ctx.fillRect(0, 0, 1024, 256);
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 10;
+                ctx.strokeRect(10, 10, 1004, 236);
+
+                // Yellow Highway Route Badge
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(36, 46, 175, 164);
+                ctx.fillStyle = '#0f172a';
+                ctx.font = '900 52px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(hwyCode, 123, 146);
+
+                ctx.textAlign = 'left';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 44px Orbitron, sans-serif';
+                ctx.fillText(`${countyName.toUpperCase()} COUNTY`, 245, 112);
+
+                ctx.fillStyle = '#fde047';
+                ctx.font = '700 32px Rajdhani, sans-serif';
+                ctx.fillText(`${townName.toUpperCase()}  |  SPEED LIMIT 80 KM/H`, 245, 178);
+
+                const tex = new THREE.CanvasTexture(c);
+                tex.encoding = THREE.sRGBEncoding;
+                tex.anisotropy = 8;
+                return tex;
+            }
+
+            return { createAsphaltTexture, createBuildingFacadeTexture, createContainerTexture, createRoadSignTexture };
+        })();
+
+        /**
+         * 4. PHOTOREALISTIC 3D SCENE, VEHICLES, BUILDINGS & 360° ORBIT ENGINE
+         */
+        const Sim = (() => {
+            let scene, camera, renderer, envMap;
+            let truckRoot, cabGroup, trailerGroup, interiorWheel;
+            let roadMesh, roadTex, groundMesh, skyDome;
+            let buildingsAndProps = [];
+            let gantries = [];
+            let trafficCars = []; // Detailed 3D SUVs, Sedans & Matatus
+            let pedestrianCrossings = [];
+            let rollingWheels = [];
+            let leftBeam, rightBeam, brakeLightMeshes = [];
+
+            const state = {
+                speed: 0,
+                x: 3.4,
+                steerAngle: 0,
+                trailerYaw: 0,
+                cameraMode: 0,        // 0: CHASE, 1: 360° ORBIT, 2: COCKPIT, 3: HOOD
+                orbitTargetIdx: 0,    // 0: Semi-Truck, 1+: Traffic SUV/Car
+                orbitYaw: 2.7,
+                orbitPitch: 0.22,
+                orbitDist: 13.5,
+                weatherMode: 0,       // 0: Daylight, 1: Golden Dusk, 2: Nairobi Night
+                headlightsOn: true,
+                laneAssist: false,
+                activeCorridor: KENYA_NETWORK.corridors[0],
+                countyIdx: 0,
+                distTraveled: 0,
+                totalDist: 312,
+                cargoHealth: 100,
+                trafficSignal: 'GREEN'
+            };
+
+            const inputs = { gas: false, brake: false, left: false, right: false };
+            const CAM_NAMES = ['CHASE', '360° ORBIT', 'COCKPIT', 'HOOD'];
+
+            function init() {
+                const canvas = document.getElementById('game-canvas');
+                scene = new THREE.Scene();
+
+                camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.2, 480);
+
+                renderer = new THREE.WebGLRenderer({
+                    canvas,
+                    antialias: true,
+                    powerPreference: 'high-performance'
+                });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+                renderer.outputEncoding = THREE.sRGBEncoding;
+                renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                renderer.toneMappingExposure = 1.12;
+                renderer.shadowMap.enabled = true;
+                renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+                generateEnvironmentReflections();
+                setupLights();
+                buildKenyanWorld();
+                buildRealisticSemiTruck();
+                buildTrafficCars();
+                setupOrbitGestures(canvas);
+
+                window.addEventListener('resize', onResize);
+                requestAnimationFrame(loop);
+            }
+
+            // Procedural Studio/Sky Environment Reflection Map for Realistic Metallic Paint & Glass
+            function generateEnvironmentReflections() {
+                const pmrem = new THREE.PMREMGenerator(renderer);
+                const envScene = new THREE.Scene();
+                const skyDome = new THREE.Mesh(
+                    new THREE.SphereGeometry(50, 24, 16),
+                    new THREE.MeshBasicMaterial({ color: 0x7dd3fc, side: THREE.BackSide })
+                );
+                const groundDome = new THREE.Mesh(
+                    new THREE.PlaneGeometry(100, 100),
+                    new THREE.MeshBasicMaterial({ color: 0x3f2e21 })
+                );
+                groundDome.rotation.x = -Math.PI / 2;
+                groundDome.position.y = -5;
+                envScene.add(skyDome, groundDome);
+                envMap = pmrem.fromScene(envScene).texture;
+                scene.environment = envMap;
+                pmrem.dispose();
+            }
+
+            let hemiLight, sunLight;
+            function setupLights() {
+                hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x3b2f24, 0.95);
+                scene.add(hemiLight);
+
+                sunLight = new THREE.DirectionalLight(0xfffbeb, 1.65);
+                sunLight.position.set(55, 95, 45);
+                sunLight.castShadow = true;
+                sunLight.shadow.mapSize.width = 1024;
+                sunLight.shadow.mapSize.height = 1024;
+                sunLight.shadow.camera.near = 10;
+                sunLight.shadow.camera.far = 220;
+                const d = 45;
+                sunLight.shadow.camera.left = -d;
+                sunLight.shadow.camera.right = d;
+                sunLight.shadow.camera.top = d;
+                sunLight.shadow.camera.bottom = -d;
+                scene.add(sunLight);
+
+                scene.background = new THREE.Color(0x6ba4d9);
+                scene.fog = new THREE.FogExp2(0x8ab8e0, 0.0032);
+
+                const skyCanvas = document.createElement('canvas');
+                skyCanvas.width = 1024;
+                skyCanvas.height = 512;
+                const skyCtx = skyCanvas.getContext('2d');
+                const skyGradient = skyCtx.createLinearGradient(0, 0, 0, 512);
+                skyGradient.addColorStop(0, '#5e9fce');
+                skyGradient.addColorStop(0.48, '#a7cce3');
+                skyGradient.addColorStop(0.78, '#d4e4e8');
+                skyGradient.addColorStop(1, '#e8e6da');
+                skyCtx.fillStyle = skyGradient;
+                skyCtx.fillRect(0, 0, 1024, 512);
+                for (let i = 0; i < 14; i++) {
+                    const x = (i * 89 + 41) % 1024;
+                    const y = 115 + ((i * 37) % 155);
+                    const width = 70 + ((i * 29) % 130);
+                    const cloud = skyCtx.createRadialGradient(x, y, 2, x, y, width);
+                    cloud.addColorStop(0, 'rgba(255,255,255,0.2)');
+                    cloud.addColorStop(1, 'rgba(255,255,255,0)');
+                    skyCtx.fillStyle = cloud;
+                    skyCtx.fillRect(x - width, y - width * 0.35, width * 2, width * 0.7);
+                }
+                const skyTexture = new THREE.CanvasTexture(skyCanvas);
+                skyTexture.encoding = THREE.sRGBEncoding;
+                skyDome = new THREE.Mesh(
+                    new THREE.SphereGeometry(440, 32, 20),
+                    new THREE.MeshBasicMaterial({ map: skyTexture, side: THREE.BackSide, fog: false, depthWrite: false })
+                );
+                skyDome.frustumCulled = false;
+                scene.add(skyDome);
+            }
+
+            function buildKenyanWorld() {
+                // Kenyan Highland / Savannah Terrain
+                groundMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(1000, 1000),
+                    new THREE.MeshStandardMaterial({ color: 0x2d4c2b, roughness: 0.92 })
+                );
+                groundMesh.rotation.x = -Math.PI / 2;
+                groundMesh.position.y = -0.05;
+                groundMesh.receiveShadow = true;
+                scene.add(groundMesh);
+
+                // Realistic 4-Lane Kenyan Tarmac Highway (Width 26m)
+                roadTex = RealismAssets.createAsphaltTexture();
+                roadTex.repeat.set(1, 24);
+                roadMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(26, 750),
+                    new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.58, metalness: 0.08 })
+                );
+                roadMesh.rotation.x = -Math.PI / 2;
+                roadMesh.position.z = -260;
+                roadMesh.receiveShadow = true;
+                scene.add(roadMesh);
+
+                // Concrete Highway Side Curbs & Steel Guardrails
+                const curbMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.7 });
+                const leftCurb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 750), curbMat);
+                leftCurb.position.set(-13.4, 0.12, -260);
+                const rightCurb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 750), curbMat);
+                rightCurb.position.set(13.4, 0.12, -260);
+                scene.add(leftCurb, rightCurb);
+
+                // Soft highland ridges add distance and scale behind the roadside town details.
+                const hillColors = [0x61704e, 0x74775a, 0x59694d, 0x847b60];
+                for (let i = 0; i < 12; i++) {
+                    const side = i % 2 === 0 ? -1 : 1;
+                    const hill = new THREE.Mesh(
+                        new THREE.SphereGeometry(1, 22, 14),
+                        new THREE.MeshStandardMaterial({ color: hillColors[i % hillColors.length], roughness: 1, metalness: 0 })
+                    );
+                    hill.scale.set(25 + (i % 4) * 8, 9 + (i % 3) * 4, 48 + (i % 5) * 9);
+                    hill.position.set(side * (63 + (i % 3) * 11), -3.5, -30 - i * 54);
+                    hill.receiveShadow = true;
+                    scene.add(hill);
+                    buildingsAndProps.push(hill);
+                }
+
+                // Realistic Kenyan Architectural Buildings, Petrol Stations & Acacia/Eucalyptus Trees
+                const glassTex = RealismAssets.createBuildingFacadeTexture('glass_tower');
+                const plazaTex = RealismAssets.createBuildingFacadeTexture('kenyan_plaza');
+                const coastalTex = RealismAssets.createBuildingFacadeTexture('coastal');
+
+                const facadeMats = [
+                    new THREE.MeshStandardMaterial({ map: glassTex, roughness: 0.2, metalness: 0.7 }),
+                    new THREE.MeshStandardMaterial({ map: plazaTex, roughness: 0.65, metalness: 0.1 }),
+                    new THREE.MeshStandardMaterial({ map: coastalTex, roughness: 0.6, metalness: 0.1 })
+                ];
+
+                for (let i = 0; i < 42; i++) {
+                    const zPos = -i * 16;
+                    [-1, 1].forEach(side => {
+                        const group = new THREE.Group();
+                        const distFromRoad = 19 + (i % 3) * 11 + Math.random() * 6;
+                        group.position.set(side * distFromRoad, 0, zPos);
+
+                        if (i % 7 === 0 && side === 1) {
+                            // Realistic Kenyan Highway Petrol Station Canopy (Total / Rubis Style)
+                            const canopy = new THREE.Mesh(
+                                new THREE.BoxGeometry(10, 0.8, 14),
+                                new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3 })
+                            );
+                            canopy.position.y = 5.4;
+                            const roofTrim = new THREE.Mesh(
+                                new THREE.BoxGeometry(10.2, 0.25, 14.2),
+                                new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+                            );
+                            roofTrim.position.y = 5.85;
+                            const pillar1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 5.4, 0.6), new THREE.MeshStandardMaterial({ color: 0xf8fafc }));
+                            pillar1.position.set(-3.5, 2.7, -4);
+                            const pillar2 = pillar1.clone();
+                            pillar2.position.set(-3.5, 2.7, 4);
+                            group.add(canopy, roofTrim, pillar1, pillar2);
+                        } else if (i % 2 === 0) {
+                            // Multi-Story Realistic Kenyan Building
+                            const isTower = (i % 6 === 0);
+                            const w = isTower ? 11 : 12;
+                            const d = isTower ? 11 : 14;
+                            const h = isTower ? (26 + Math.random() * 24) : (10 + Math.random() * 10);
+                            const mat = isTower ? facadeMats[0] : facadeMats[1];
+                            const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+                            bldg.position.y = h / 2;
+                            bldg.castShadow = true;
+                            bldg.receiveShadow = true;
+
+                            // Roof parapet & water tank (Iconic Kenyan rooftop detail)
+                            const tank = new THREE.Mesh(
+                                new THREE.CylinderGeometry(1.1, 1.1, 2.2, 12),
+                                new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5 })
+                            );
+                            tank.position.set(2, h + 1.1, 2);
+                            group.add(bldg, tank);
+                        } else {
+                            // Realistic East African Acacia / Highland Tree + Highway Streetlight
+                            const trunk = new THREE.Mesh(
+                                new THREE.CylinderGeometry(0.25, 0.4, 4.2, 8),
+                                new THREE.MeshStandardMaterial({ color: 0x4a3525, roughness: 0.9 })
+                            );
+                            trunk.position.y = 2.1;
+                            const crown = new THREE.Mesh(
+                                new THREE.CylinderGeometry(3.8, 1.8, 1.6, 12),
+                                new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.85 })
+                            );
+                            crown.position.y = 4.5;
+                            group.add(trunk, crown);
+                        }
+
+                        // Streetlight pole along curb
+                        const pole = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.1, 0.14, 8.5, 8),
+                            new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.8 })
+                        );
+                        pole.position.set(-side * (distFromRoad - 14.2), 4.25, 0);
+                        group.add(pole);
+
+                        scene.add(group);
+                        buildingsAndProps.push(group);
+                    });
+                }
+
+                // Overhead Green KeNHA Highway Gantry Signs
+                for (let i = 0; i < 3; i++) {
+                    createHighwayGantry(-130 - i * 200);
+                }
+
+                buildPedestrianCrossings();
+            }
+
+            function createHighwayGantry(zPos) {
+                const g = new THREE.Group();
+                g.position.set(0, 0, zPos);
+
+                const steelMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.85, roughness: 0.25 });
+                const pL = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 10, 10), steelMat);
+                pL.position.set(-13.8, 5, 0);
+                const pR = pL.clone();
+                pR.position.set(13.8, 5, 0);
+                const truss = new THREE.Mesh(new THREE.BoxGeometry(28.4, 0.65, 0.65), steelMat);
+                truss.position.set(0, 9.8, 0);
+
+                const cObj = getCurrentCounty();
+                const signTex = RealismAssets.createRoadSignTexture(cObj.name, cObj.hwy, cObj.town);
+                const board = new THREE.Mesh(
+                    new THREE.BoxGeometry(13.5, 3.4, 0.2),
+                    new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.35 })
+                );
+                board.position.set(0, 8.4, 0.35);
+
+                g.add(pL, pR, truss, board);
+                g.userData = { board };
+                scene.add(g);
+                gantries.push(g);
+            }
+
+            function createPedestrian() {
+                const person = new THREE.Group();
+                const skin = new THREE.MeshStandardMaterial({ color: 0x8d5524, roughness: 0.88 });
+                const shirtColors = [0x15803d, 0x1d4ed8, 0xb45309, 0x7c3aed];
+                const shirt = new THREE.MeshStandardMaterial({ color: shirtColors[Math.floor(Math.random() * shirtColors.length)], roughness: 0.82 });
+                const trousers = new THREE.MeshStandardMaterial({ color: 0x172033, roughness: 0.9 });
+                const shoes = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.95 });
+
+                const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 0.64, 10), shirt);
+                torso.position.y = 1.05;
+                torso.castShadow = true;
+                person.add(torso);
+
+                const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.16, 8), skin);
+                neck.position.y = 1.43;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), skin);
+                head.position.y = 1.62;
+                head.castShadow = true;
+                const hair = new THREE.Mesh(new THREE.SphereGeometry(0.175, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0x17120f, roughness: 1 }));
+                hair.position.y = 1.66;
+                person.add(neck, head, hair);
+
+                const makeLimb = (material, length, radius) => {
+                    const limb = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.78, radius, length, 8), material);
+                    limb.castShadow = true;
+                    return limb;
+                };
+                const leftArm = makeLimb(skin, 0.55, 0.075);
+                const rightArm = makeLimb(skin, 0.55, 0.075);
+                leftArm.position.set(-0.29, 1.08, 0);
+                rightArm.position.set(0.29, 1.08, 0);
+                const leftLeg = makeLimb(trousers, 0.68, 0.105);
+                const rightLeg = makeLimb(trousers, 0.68, 0.105);
+                leftLeg.position.set(-0.13, 0.39, 0);
+                rightLeg.position.set(0.13, 0.39, 0);
+                const leftShoe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.28), shoes);
+                const rightShoe = leftShoe.clone();
+                leftShoe.position.set(-0.13, 0.08, -0.06);
+                rightShoe.position.set(0.13, 0.08, -0.06);
+                person.add(leftArm, rightArm, leftLeg, rightLeg, leftShoe, rightShoe);
+
+                person.userData = { leftArm, rightArm, leftLeg, rightLeg, startZ: 0 };
+                return person;
+            }
+
+            function createCrossingSignTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 256;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.moveTo(128, 8); ctx.lineTo(248, 128); ctx.lineTo(128, 248); ctx.lineTo(8, 128); ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#1f2937'; ctx.lineWidth = 9; ctx.stroke();
+                ctx.fillStyle = '#172033';
+                ctx.beginPath(); ctx.arc(135, 72, 18, 0, Math.PI * 2); ctx.fill();
+                ctx.lineWidth = 13; ctx.lineCap = 'round'; ctx.strokeStyle = '#172033';
+                ctx.beginPath(); ctx.moveTo(130, 95); ctx.lineTo(112, 147); ctx.lineTo(153, 158); ctx.lineTo(171, 202); ctx.moveTo(114, 142); ctx.lineTo(82, 176); ctx.moveTo(130, 108); ctx.lineTo(172, 128); ctx.stroke();
+                ctx.lineWidth = 11;
+                ctx.beginPath(); ctx.moveTo(114, 147); ctx.lineTo(98, 205); ctx.moveTo(153, 158); ctx.lineTo(137, 208); ctx.stroke();
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.encoding = THREE.sRGBEncoding;
+                return tex;
+            }
+
+            function addSignalHead(parent, x, y, z, facing) {
+                const headGroup = new THREE.Group();
+                headGroup.position.set(x, y, z);
+                headGroup.rotation.y = facing;
+                const housingMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.42, metalness: 0.35 });
+                const housing = new THREE.Mesh(new THREE.BoxGeometry(0.62, 1.72, 0.42), housingMat);
+                housing.castShadow = true;
+                headGroup.add(housing);
+                const lampDefs = [
+                    { key: 'RED', y: 0.5, color: 0xef4444 },
+                    { key: 'AMBER', y: 0, color: 0xf59e0b },
+                    { key: 'GREEN', y: -0.5, color: 0x22c55e }
+                ];
+                const lamps = {};
+                lampDefs.forEach(def => {
+                    const material = new THREE.MeshStandardMaterial({
+                        color: def.color,
+                        emissive: def.color,
+                        emissiveIntensity: 0.035,
+                        roughness: 0.24,
+                        metalness: 0.05
+                    });
+                    const lens = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), material);
+                    lens.position.set(0, def.y, 0.235);
+                    headGroup.add(lens);
+                    lamps[def.key] = lens;
+                });
+                parent.add(headGroup);
+                return lamps;
+            }
+
+            function buildPedestrianCrossings() {
+                const stripeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.78, metalness: 0.02 });
+                const stopLineMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.8 });
+                const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.75 });
+                const signTex = createCrossingSignTexture();
+                const signMat = new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.62, metalness: 0.02, side: THREE.DoubleSide });
+
+                [-78, -300, -522].forEach((zPos, index) => {
+                    const crossing = new THREE.Group();
+                    crossing.position.z = zPos;
+
+                    // Broad zebra bars and a stop line make each town crossing visible from the cab.
+                    for (let i = 0; i < 5; i++) {
+                        const stripe = new THREE.Mesh(new THREE.BoxGeometry(24.2, 0.035, 0.58), stripeMat);
+                        stripe.position.set(0, 0.018, -1.45 + i * 0.98);
+                        stripe.receiveShadow = true;
+                        crossing.add(stripe);
+                    }
+                    const stopLine = new THREE.Mesh(new THREE.BoxGeometry(24.2, 0.035, 0.22), stopLineMat);
+                    stopLine.position.set(0, 0.02, 5.9);
+                    crossing.add(stopLine);
+
+                    const lamps = [];
+                    [-12.7, 12.7].forEach(sideX => {
+                        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.17, 5.5, 10), poleMat);
+                        pole.position.set(sideX, 2.75, 7.1);
+                        pole.castShadow = true;
+                        crossing.add(pole);
+                        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.14, 0.14), poleMat);
+                        arm.position.set(sideX, 5.15, 7.1);
+                        crossing.add(arm);
+                        // Double-sided signal heads serve both directions of the divided highway.
+                        lamps.push(addSignalHead(crossing, sideX, 5.55, 7.1, 0));
+                        lamps.push(addSignalHead(crossing, sideX, 5.55, 6.72, Math.PI));
+
+                        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.07, 2.5, 8), poleMat);
+                        signPost.position.set(sideX * 0.94, 1.25, 3.8);
+                        crossing.add(signPost);
+                        const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.88), signMat);
+                        sign.position.set(sideX * 0.94, 2.72, 3.8);
+                        crossing.add(sign);
+                    });
+
+                    const walkers = [];
+                    for (let i = 0; i < 3; i++) {
+                        const person = createPedestrian();
+                        person.position.set(-14.1, 0, -1.35 + i * 1.35);
+                        person.visible = false;
+                        crossing.add(person);
+                        walkers.push(person);
+                    }
+
+                    crossing.userData = { lamps, walkers, phaseOffset: index * 9 };
+                    scene.add(crossing);
+                    pedestrianCrossings.push(crossing);
+                });
+            }
+
+            function createTruckProfile(points, width, material) {
+                const shape = new THREE.Shape();
+                points.forEach(([z, y], i) => {
+                    const px = -z;
+                    if (i === 0) shape.moveTo(px, y);
+                    else shape.lineTo(px, y);
+                });
+                shape.closePath();
+                const geometry = new THREE.ExtrudeGeometry(shape, {
+                    depth: width,
+                    steps: 1,
+                    bevelEnabled: true,
+                    bevelSegments: 3,
+                    bevelThickness: 0.03,
+                    bevelSize: 0.03
+                });
+                geometry.rotateY(Math.PI / 2);
+                geometry.translate(-width / 2, 0, 0);
+                geometry.computeVertexNormals();
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                return mesh;
+            }
+
+            function createTruckSidePanel(points, x, material) {
+                const shape = new THREE.Shape();
+                points.forEach(([z, y], i) => {
+                    const px = -z;
+                    if (i === 0) shape.moveTo(px, y);
+                    else shape.lineTo(px, y);
+                });
+                shape.closePath();
+                const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape, 12), material);
+                mesh.rotation.y = Math.PI / 2;
+                mesh.position.x = x;
+                return mesh;
+            }
+
+            /** Aerodynamic sleeper tractor with rounded PBR cab, inset glass and detailed front fascia. */
+            function buildRealisticSemiTruck() {
+                truckRoot = new THREE.Group();
+                truckRoot.position.set(state.x, 0, 0);
+                scene.add(truckRoot);
+
+                cabGroup = new THREE.Group();
+                truckRoot.add(cabGroup);
+
+                // Realistic Metallic Crimson-Red Clearcoat Paint
+                const paintMat = new THREE.MeshPhysicalMaterial({
+                    color: 0xb91c1c,
+                    metalness: 0.65,
+                    roughness: 0.22,
+                    clearcoat: 1.0,
+                    clearcoatRoughness: 0.08
+                });
+
+                const chromeMat = new THREE.MeshStandardMaterial({
+                    color: 0xf8fafc,
+                    metalness: 0.96,
+                    roughness: 0.08
+                });
+
+                const darkChassisMat = new THREE.MeshStandardMaterial({
+                    color: 0x111827,
+                    metalness: 0.6,
+                    roughness: 0.5
+                });
+
+                const tintedGlassMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x102a38,
+                    metalness: 0.18,
+                    roughness: 0.11,
+                    clearcoat: 1,
+                    clearcoatRoughness: 0.04,
+                    transparent: true,
+                    opacity: 0.9,
+                    side: THREE.DoubleSide
+                });
+
+                // Heavy Steel Ladder Frame Chassis
+                const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.45, 0.65, 6.8), darkChassisMat);
+                chassis.position.set(0, 0.9, -0.3);
+                chassis.castShadow = true;
+                cabGroup.add(chassis);
+
+                // A single sculpted side profile gives the hood, sloped windshield and sleeper one natural silhouette.
+                const cabBody = createTruckProfile([
+                    [1.15, 0.94], [1.15, 3.38], [0.62, 3.98], [-0.12, 4.14], [-0.78, 4.06],
+                    [-1.02, 3.9], [-2.9, 2.5], [-4.22, 2.23], [-4.34, 1.22], [-4.15, 0.94],
+                    [-3.52, 0.94], [-3.42, 1.18], [-3.23, 1.41], [-2.96, 1.52], [-2.68, 1.54],
+                    [-2.41, 1.44], [-2.2, 1.19], [-2.1, 0.94], [-0.22, 0.94], [0.02, 1.18],
+                    [0.29, 1.4], [0.58, 1.48], [0.83, 1.39], [1.03, 1.12]
+                ], 2.66, paintMat);
+                cabGroup.add(cabBody);
+
+                // Deep tinted panoramic windscreen follows the long forward rake of the reference truck.
+                const windshield = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 2.12), tintedGlassMat);
+                windshield.position.set(0, 3.18, -2.12);
+                windshield.rotation.x = 0.94;
+                cabGroup.add(windshield);
+                const windshieldPillarMat = new THREE.MeshStandardMaterial({ color: 0x8b111c, metalness: 0.38, roughness: 0.28 });
+                [-1.08, 1.08].forEach(x => {
+                    const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.085, 2.16, 0.09), windshieldPillarMat);
+                    pillar.position.set(x, 3.18, -2.12);
+                    pillar.rotation.x = 0.94;
+                    cabGroup.add(pillar);
+                });
+
+                // Side glass, door seams and handles sit flush with the sculpted cab sides.
+                const sideGlassMat = tintedGlassMat.clone();
+                const doorWindow = [[-0.92, 2.31], [-0.92, 3.25], [-0.23, 3.68], [0.48, 3.66], [0.48, 2.31]];
+                const sleeperWindow = [[0.68, 2.46], [0.68, 3.23], [0.98, 3.42], [1.03, 2.46]];
+                [-1.38, 1.38].forEach(x => {
+                    cabGroup.add(createTruckSidePanel(doorWindow, x, sideGlassMat));
+                    cabGroup.add(createTruckSidePanel(sleeperWindow, x, sideGlassMat));
+
+                    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.07, 0.22), chromeMat);
+                    handle.position.set(x * 1.005, 1.94, 0.12);
+                    cabGroup.add(handle);
+
+                    const sideStep = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.13, 0.82), darkChassisMat);
+                    sideStep.position.set(x * 0.99, 0.86, -0.55);
+                    cabGroup.add(sideStep);
+                    const stepTread = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.025, 0.72), chromeMat);
+                    stepTread.position.set(x * 1.025, 0.93, -0.55);
+                    cabGroup.add(stepTread);
+                });
+
+                // Long, low hood vents and subtle hood creases catch highlights without a toy-like box shape.
+                const ventMat = new THREE.MeshStandardMaterial({ color: 0x2b3038, metalness: 0.55, roughness: 0.34 });
+                [-1.23, 1.23].forEach(x => {
+                    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.31, 0.5), ventMat);
+                    vent.position.set(x, 1.97, -3.53);
+                    cabGroup.add(vent);
+                    for (let i = 0; i < 4; i++) {
+                        const louver = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.025, 0.4), chromeMat);
+                        louver.position.set(x * 1.01, 1.86 + i * 0.075, -3.53);
+                        cabGroup.add(louver);
+                    }
+                });
+
+                // Split mesh grille, projector headlamps, amber markers and a dark lower bumper.
+                const grilleBlack = new THREE.MeshStandardMaterial({ color: 0x11151c, metalness: 0.52, roughness: 0.37 });
+                [-0.47, 0.47].forEach(centerX => {
+                    const surround = new THREE.Mesh(new THREE.BoxGeometry(0.83, 1.04, 0.12), chromeMat);
+                    surround.position.set(centerX, 1.82, -4.3);
+                    const inset = new THREE.Mesh(new THREE.BoxGeometry(0.69, 0.91, 0.13), grilleBlack);
+                    inset.position.set(centerX, 1.82, -4.375);
+                    cabGroup.add(surround, inset);
+                    for (let i = 0; i < 8; i++) {
+                        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.82, 0.03), chromeMat);
+                        bar.position.set(centerX - 0.28 + i * 0.08, 1.82, -4.46);
+                        cabGroup.add(bar);
+                    }
+                });
+                const centerDivider = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.12, 0.15), chromeMat);
+                centerDivider.position.set(0, 1.82, -4.38);
+                cabGroup.add(centerDivider);
+
+                const lampHousingMat = new THREE.MeshStandardMaterial({ color: 0x181c24, metalness: 0.62, roughness: 0.28 });
+                const projectorMat = new THREE.MeshPhysicalMaterial({ color: 0xe7f3ff, emissive: 0xc9e6ff, emissiveIntensity: 0.18, roughness: 0.12, clearcoat: 1 });
+                const markerMat = new THREE.MeshBasicMaterial({ color: 0xffa629 });
+                [-1, 1].forEach(side => {
+                    const housing = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.44, 0.13), lampHousingMat);
+                    housing.position.set(side * 0.98, 1.72, -4.31);
+                    cabGroup.add(housing);
+                    const projector = new THREE.Mesh(new THREE.SphereGeometry(0.145, 18, 14), projectorMat);
+                    projector.scale.set(1.2, 0.78, 0.42);
+                    projector.position.set(side * 0.98, 1.73, -4.4);
+                    cabGroup.add(projector);
+                    const indicator = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.12, 0.035), markerMat);
+                    indicator.position.set(side * 1.18, 2.02, -4.37);
+                    cabGroup.add(indicator);
+                });
+
+                const lowerBumperMat = new THREE.MeshStandardMaterial({ color: 0x20242a, metalness: 0.74, roughness: 0.28 });
+                const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.36, 0.28), lowerBumperMat);
+                frontBumper.position.set(0, 0.99, -4.36);
+                cabGroup.add(frontBumper);
+                const bumperChrome = new THREE.Mesh(new THREE.BoxGeometry(2.48, 0.055, 0.06), chromeMat);
+                bumperChrome.position.set(0, 0.87, -4.51);
+                cabGroup.add(bumperChrome);
+
+                // Dual Chrome Vertical Exhaust Stacks behind Cab
+                [-1.34, 1.34].forEach(ex => {
+                    const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.3, 14), chromeMat);
+                    stack.position.set(ex, 2.65, 0.95);
+                    cabGroup.add(stack);
+
+                    // Cylindrical Aluminum Diesel Fuel Tanks
+                    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 1.85, 16), chromeMat);
+                    tank.rotation.x = Math.PI / 2;
+                    tank.position.set(ex * 0.92, 0.88, 0.15);
+                    cabGroup.add(tank);
+
+                    // Exterior Side Rearview Mirrors
+                    const mirrorArm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.07, 0.08), darkChassisMat);
+                    mirrorArm.position.set(ex * 1.12, 2.78, -2.0);
+                    const mirrorHousing = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.58, 0.3), darkChassisMat);
+                    mirrorHousing.position.set(ex * 1.3, 2.65, -2.03);
+                    const mirrorGlass = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.46, 0.22), tintedGlassMat);
+                    mirrorGlass.position.set(ex * 1.36, 2.65, -2.03);
+                    cabGroup.add(mirrorArm, mirrorHousing, mirrorGlass);
+                });
+
+                // Interior Cockpit Steering Wheel (Visible in Cockpit Camera)
+                interiorWheel = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.28, 0.038, 10, 24),
+                    darkChassisMat
+                );
+                interiorWheel.position.set(-0.56, 2.25, -1.35);
+                interiorWheel.rotation.x = -0.45;
+                cabGroup.add(interiorWheel);
+
+                // Functional beams align with the projector lenses in the new fascia.
+                leftBeam = new THREE.SpotLight(0xfffbeb, 2.4, 110, Math.PI / 5, 0.45, 1);
+                leftBeam.position.set(-0.98, 1.72, -4.38);
+                leftBeam.target.position.set(-1.2, 0.2, -45);
+                cabGroup.add(leftBeam, leftBeam.target);
+
+                rightBeam = new THREE.SpotLight(0xfffbeb, 2.4, 110, Math.PI / 5, 0.45, 1);
+                rightBeam.position.set(0.98, 1.72, -4.38);
+                rightBeam.target.position.set(1.2, 0.2, -45);
+                cabGroup.add(rightBeam, rightBeam.target);
+
+                // --- 40-FOOT ARTICULATED KENYAN FREIGHT CONTAINER TRAILER ---
+                trailerGroup = new THREE.Group();
+                trailerGroup.position.set(0, 0, 1.5);
+                truckRoot.add(trailerGroup);
+
+                const containerTex = RealismAssets.createContainerTexture();
+                const sideMat = new THREE.MeshStandardMaterial({ map: containerTex, roughness: 0.38, metalness: 0.35 });
+                const endMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.45, metalness: 0.4 });
+
+                const containerBox = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.62, 3.05, 11.4),
+                    [sideMat, sideMat, endMat, endMat, endMat, endMat]
+                );
+                containerBox.position.set(0, 2.68, 5.5);
+                containerBox.castShadow = true;
+                containerBox.receiveShadow = true;
+                trailerGroup.add(containerBox);
+
+                // Aluminum side rails, corner posts and visible rear swing doors.
+                const trailerRailMat = new THREE.MeshStandardMaterial({ color: 0xb8bec0, metalness: 0.68, roughness: 0.34 });
+                [-1.32, 1.32].forEach(side => {
+                    const upperRail = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.1, 11.25), trailerRailMat);
+                    upperRail.position.set(side, 4.12, 5.5);
+                    const lowerRail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.13, 11.25), trailerRailMat);
+                    lowerRail.position.set(side, 1.28, 5.5);
+                    const frontPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, 3.0, 0.12), trailerRailMat);
+                    frontPost.position.set(side, 2.68, -0.12);
+                    trailerGroup.add(upperRail, lowerRail, frontPost);
+                });
+
+                const doorMat = new THREE.MeshStandardMaterial({ color: 0xe1e4e3, metalness: 0.42, roughness: 0.52 });
+                [-0.64, 0.64].forEach(x => {
+                    const door = new THREE.Mesh(new THREE.BoxGeometry(1.26, 2.96, 0.07), doorMat);
+                    door.position.set(x, 2.68, 11.24);
+                    trailerGroup.add(door);
+                    const lockBar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 2.7, 8), trailerRailMat);
+                    lockBar.position.set(x, 2.68, 11.31);
+                    trailerGroup.add(lockBar);
+                    for (let y = 1.55; y <= 3.8; y += 0.75) {
+                        const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.13, 0.1), trailerRailMat);
+                        hinge.position.set(x + (x > 0 ? -0.49 : 0.49), y, 11.31);
+                        trailerGroup.add(hinge);
+                    }
+                });
+                const doorSeam = new THREE.Mesh(new THREE.BoxGeometry(0.045, 3.0, 0.08), trailerRailMat);
+                doorSeam.position.set(0, 2.68, 11.29);
+                trailerGroup.add(doorSeam);
+
+                // Rear Steel Underride Bumper & Tail/Brake Lights
+                const rearBar = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.35, 0.25), darkChassisMat);
+                rearBar.position.set(0, 0.95, 11.2);
+                trailerGroup.add(rearBar);
+
+                const brakeMat = new THREE.MeshBasicMaterial({ color: 0x991b1b });
+                const bL = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.2, 0.08), brakeMat);
+                bL.position.set(-0.9, 0.95, 11.33);
+                const bR = bL.clone();
+                bR.position.x = 0.9;
+                trailerGroup.add(bL, bR);
+                brakeLightMeshes.push(bL, bR);
+
+                // Realistic Rubber Tires + Chrome Alcoa Alloy Rims (18-Wheeler Configuration)
+                const cabAxles = [
+                    [-1.28, 0.56, -2.7], [1.28, 0.56, -2.7],
+                    [-1.28, 0.56, 0.6],  [1.28, 0.56, 0.6],
+                    [-1.28, 0.56, 1.85], [1.28, 0.56, 1.85]
+                ];
+                cabAxles.forEach(([wx, wy, wz]) => {
+                    const w = createRealisticWheel(0.56, 0.36);
+                    w.position.set(wx, wy, wz);
+                    cabGroup.add(w);
+                    rollingWheels.push(w);
+                });
+
+                [8.0, 9.3, 10.6].forEach(wz => {
+                    [-1.28, 1.28].forEach(wx => {
+                        const w = createRealisticWheel(0.56, 0.38);
+                        w.position.set(wx, 0.56, wz);
+                        trailerGroup.add(w);
+                        rollingWheels.push(w);
+                    });
+                });
+
+                // Painted fender lips frame the tractor's exposed wheels.
+                const archMat = new THREE.MeshPhysicalMaterial({ color: 0x95141b, metalness: 0.58, roughness: 0.26, clearcoat: 0.75 });
+                [-2.7, 0.6].forEach(wz => {
+                    [-1.35, 1.35].forEach(wx => {
+                        const arch = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.075, 10, 32, Math.PI), archMat);
+                        arch.rotation.y = Math.PI / 2;
+                        arch.position.set(wx, 0.56, wz);
+                        arch.castShadow = true;
+                        cabGroup.add(arch);
+                    });
+                });
+
+                // Five amber roof markers and paired windscreen wipers finish the cab details.
+                const roofMarkerMat = new THREE.MeshBasicMaterial({ color: 0xffa11a });
+                for (let i = -2; i <= 2; i++) {
+                    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), roofMarkerMat);
+                    marker.position.set(i * 0.39, 4.02, -0.95);
+                    cabGroup.add(marker);
+                }
+                [-0.48, 0.48].forEach(x => {
+                    const wiper = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.035, 0.045), darkChassisMat);
+                    wiper.position.set(x, 2.67, -2.92);
+                    cabGroup.add(wiper);
+                });
+            }
+
+            function createRealisticWheel(radius, width) {
+                const grp = new THREE.Group();
+                const tire = new THREE.Mesh(
+                    new THREE.CylinderGeometry(radius, radius, width, 24),
+                    new THREE.MeshStandardMaterial({ color: 0x14171d, roughness: 0.82 })
+                );
+                tire.rotation.z = Math.PI / 2;
+                tire.castShadow = true;
+
+                const rim = new THREE.Mesh(
+                    new THREE.CylinderGeometry(radius * 0.56, radius * 0.56, width + 0.03, 18),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.92, roughness: 0.14 })
+                );
+                rim.rotation.z = Math.PI / 2;
+
+                const hub = new THREE.Mesh(
+                    new THREE.CylinderGeometry(radius * 0.22, radius * 0.22, width + 0.06, 12),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 })
+                );
+                hub.rotation.z = Math.PI / 2;
+
+                const rimEdgeMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.96, roughness: 0.11 });
+                const boltMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.94, roughness: 0.2 });
+                [-1, 1].forEach(side => {
+                    const lip = new THREE.Mesh(new THREE.TorusGeometry(radius * 0.49, 0.035, 8, 24), rimEdgeMat);
+                    lip.rotation.y = Math.PI / 2;
+                    lip.position.x = side * (width / 2 + 0.025);
+                    grp.add(lip);
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i / 8) * Math.PI * 2;
+                        const bolt = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 6), boltMat);
+                        bolt.position.set(side * (width / 2 + 0.055), Math.cos(angle) * radius * 0.3, Math.sin(angle) * radius * 0.3);
+                        grp.add(bolt);
+                    }
+                });
+
+                grp.add(tire, rim, hub);
+                return grp;
+            }
+
+            /**
+             * REALISTIC 3D ESCORT SUVs (LAND CRUISER PRADO STYLE), SEDANS & KENYAN MATATUS
+             * Inspectable in 360° 3D Orbit Camera!
+             */
+            function buildTrafficCars() {
+                const configs = [
+                    { name: 'TOYOTA PRADO 4x4 SUV', lane: 9.2, z: -26, color: 0xf8fafc, isSUV: true, speed: 78 },
+                    { name: 'EXECUTIVE SALOON CAR', lane: -3.4, z: -65, color: 0x1e293b, isSUV: false, speed: -72 },
+                    { name: 'NAIROBI EXPRESS MATATU', lane: 3.4, z: -115, color: 0xf59e0b, isSUV: true, speed: 74 },
+                    { name: 'SILVER HARRIER SUV', lane: -9.2, z: -170, color: 0x94a3b8, isSUV: true, speed: -68 },
+                    { name: 'BLUE TOURING SEDAN', lane: 9.2, z: -230, color: 0x1d4ed8, isSUV: false, speed: 82 }
+                ];
+
+                const glassMat = new THREE.MeshPhysicalMaterial({
+                    color: 0x090d16,
+                    metalness: 0.15,
+                    roughness: 0.06,
+                    clearcoat: 1.0
+                });
+
+                configs.forEach(cfg => {
+                    const car = new THREE.Group();
+                    const bodyMat = new THREE.MeshPhysicalMaterial({
+                        color: cfg.color,
+                        metalness: 0.6,
+                        roughness: 0.22,
+                        clearcoat: 1.0,
+                        clearcoatRoughness: 0.08
+                    });
+
+                    const hLower = cfg.isSUV ? 0.88 : 0.68;
+                    const lowerBody = new THREE.Mesh(new THREE.BoxGeometry(2.05, hLower, 4.75), bodyMat);
+                    lowerBody.position.y = 0.72;
+                    lowerBody.castShadow = true;
+
+                    const cabinH = cfg.isSUV ? 0.78 : 0.62;
+                    const cabinL = cfg.isSUV ? 3.25 : 2.35;
+                    const cabinZ = cfg.isSUV ? 0.35 : 0.25;
+                    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.82, cabinH, cabinL), glassMat);
+                    cabin.position.set(0, 0.72 + hLower / 2 + cabinH / 2 - 0.04, cabinZ);
+
+                    const roof = new THREE.Mesh(new THREE.BoxGeometry(1.78, 0.08, cabinL - 0.15), bodyMat);
+                    roof.position.set(0, cabin.position.y + cabinH / 2 + 0.02, cabinZ);
+
+                    // Headlights & Taillights
+                    const headMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    const tailMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+                    const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.08), headMat);
+                    hl1.position.set(-0.72, 0.78, -2.38);
+                    const hl2 = hl1.clone(); hl2.position.x = 0.72;
+
+                    const tl1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.18, 0.08), tailMat);
+                    tl1.position.set(-0.72, 0.82, 2.38);
+                    const tl2 = tl1.clone(); tl2.position.x = 0.72;
+
+                    car.add(lowerBody, cabin, roof, hl1, hl2, tl1, tl2);
+
+                    // 4 Realistic Alloy Wheels
+                    [[-0.98, 0.42, -1.45], [0.98, 0.42, -1.45], [-0.98, 0.42, 1.45], [0.98, 0.42, 1.45]].forEach(([wx, wy, wz]) => {
+                        const w = createRealisticWheel(0.42, 0.26);
+                        w.position.set(wx, wy, wz);
+                        car.add(w);
+                    });
+
+                    // Rotate oncoming cars 180 degrees so headlights face the player
+                    if (cfg.speed < 0) car.rotation.y = Math.PI;
+
+                    car.position.set(cfg.lane, 0, cfg.z);
+                    car.userData = { name: cfg.name, speedKmh: cfg.speed };
+                    scene.add(car);
+                    trafficCars.push(car);
+                });
+            }
+
+            /**
+             * 360° FREE-ORBIT 3D CAMERA GESTURES (MOUSE DRAG + TOUCH DRAG + ZOOM)
+             */
+            function setupOrbitGestures(canvas) {
+                let dragging = false, prevX = 0, prevY = 0;
+
+                canvas.addEventListener('mousedown', e => {
+                    if (state.cameraMode !== 1) return;
+                    dragging = true;
+                    prevX = e.clientX;
+                    prevY = e.clientY;
+                });
+                window.addEventListener('mousemove', e => {
+                    if (!dragging || state.cameraMode !== 1) return;
+                    state.orbitYaw -= (e.clientX - prevX) * 0.008;
+                    state.orbitPitch = THREE.MathUtils.clamp(state.orbitPitch + (e.clientY - prevY) * 0.006, 0.06, 1.25);
+                    prevX = e.clientX;
+                    prevY = e.clientY;
+                });
+                window.addEventListener('mouseup', () => dragging = false);
+
+                canvas.addEventListener('wheel', e => {
+                    if (state.cameraMode !== 1) return;
+                    state.orbitDist = THREE.MathUtils.clamp(state.orbitDist + e.deltaY * 0.01, 6.5, 32);
+                }, { passive: true });
+
+                canvas.addEventListener('touchstart', e => {
+                    if (state.cameraMode !== 1 || e.touches.length !== 1) return;
+                    dragging = true;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                }, { passive: true });
+
+                canvas.addEventListener('touchmove', e => {
+                    if (!dragging || state.cameraMode !== 1 || e.touches.length !== 1) return;
+                    state.orbitYaw -= (e.touches[0].clientX - prevX) * 0.01;
+                    state.orbitPitch = THREE.MathUtils.clamp(state.orbitPitch + (e.touches[0].clientY - prevY) * 0.008, 0.06, 1.25);
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                }, { passive: true });
+
+                canvas.addEventListener('touchend', () => dragging = false);
+            }
+
+            function getCurrentCounty() {
+                const cName = state.activeCorridor.counties[state.countyIdx] || 'Uasin Gishu';
+                return KENYA_NETWORK.counties47.find(c => c.name.toLowerCase() === cName.toLowerCase()) || KENYA_NETWORK.counties47[26];
+            }
+
+            let lastFrame = performance.now();
+            function loop(now) {
+                requestAnimationFrame(loop);
+                const dt = Math.min(0.05, (now - lastFrame) / 1000);
+                lastFrame = now;
+
+                updateVehiclePhysics(dt);
+                updateWorldAndTraffic(dt, now / 1000);
+                updateCamera(dt);
+                updateDashboardUI();
+
+                renderer.render(scene, camera);
+            }
+
+            function updateVehiclePhysics(dt) {
+                // Acceleration & Braking
+                if (inputs.gas) {
+                    state.speed += 32 * dt;
+                } else if (inputs.brake) {
+                    if (state.speed > 2) state.speed -= 65 * dt;
+                    else state.speed -= 22 * dt;
+                } else {
+                    state.speed *= Math.pow(0.72, dt);
+                    if (Math.abs(state.speed) < 0.2) state.speed = 0;
+                }
+                state.speed = THREE.MathUtils.clamp(state.speed, -30, 145);
+
+                // Read unified steering value (-1.0 to +1.0) from Wheel, Tilt Gyro, or Keyboard
+                const steerInput = Controls.getSteerNormalized(dt);
+                if (Math.abs(steerInput) > 0.01) {
+                    state.laneAssist = false;
+                    state.steerAngle = steerInput * 0.48;
+                } else if (state.laneAssist && state.speed > 5) {
+                    const targetLane = state.x > 6.3 ? 9.2 : 3.4;
+                    state.steerAngle = THREE.MathUtils.clamp((targetLane - state.x) * 0.16, -0.3, 0.3);
+                } else {
+                    state.steerAngle *= Math.pow(0.03, dt);
+                }
+
+                const forwardMps = state.speed / 3.6;
+                rollingWheels.forEach(wheel => { wheel.rotation.x += (forwardMps * dt) / 0.56; });
+                state.x += Math.sin(state.steerAngle) * forwardMps * 0.74 * dt;
+                state.x = THREE.MathUtils.clamp(state.x, -11.3, 11.3);
+
+                truckRoot.position.x = state.x;
+                cabGroup.rotation.y = -state.steerAngle * 0.3;
+                cabGroup.rotation.z = state.steerAngle * (Math.abs(state.speed) / 145) * 0.06;
+
+                const targetTrailerYaw = state.steerAngle * 0.45;
+                state.trailerYaw += (targetTrailerYaw - state.trailerYaw) * Math.min(1, 5.5 * dt);
+                trailerGroup.rotation.y = state.trailerYaw;
+
+                if (interiorWheel) {
+                    interiorWheel.rotation.z = -state.steerAngle * 4.5;
+                }
+
+                brakeLightMeshes.forEach(m => {
+                    m.material.color.setHex(inputs.brake ? 0xff2a4b : 0x7f1d1d);
+                });
+
+                SoundEngine.update(state.speed);
+            }
+
+            function updateWorldAndTraffic(dt, elapsed) {
+                const dz = (state.speed / 3.6) * dt;
+                roadTex.offset.y -= dz * 0.032;
+
+                if (dz > 0) {
+                    state.distTraveled += (dz / 1000) * 4.2;
+                    const ratio = Math.min(1, state.distTraveled / state.totalDist);
+                    const nextIdx = Math.min(state.activeCorridor.counties.length - 1, Math.floor(ratio * state.activeCorridor.counties.length));
+                    if (nextIdx !== state.countyIdx) {
+                        state.countyIdx = nextIdx;
+                        const c = getCurrentCounty();
+                        showToast(`ENTERING ${c.name.toUpperCase()} COUNTY (${c.hwy})`, 'emerald');
+                    }
+                    if (state.distTraveled >= state.totalDist) {
+                        SoundEngine.playHorn();
+                        showToast(`CARGO DELIVERED! +KES ${state.activeCorridor.payout.toLocaleString()}`, 'amber');
+                        state.distTraveled = 0;
+                        state.countyIdx = 0;
+                    }
+                }
+
+                // Recycle Buildings & Trees
+                buildingsAndProps.forEach(obj => {
+                    obj.position.z += dz;
+                    if (obj.position.z > 25) obj.position.z -= 672;
+                    else if (obj.position.z < -650) obj.position.z += 672;
+                });
+
+                // Recycle Overhead KeNHA Gantries
+                gantries.forEach(g => {
+                    g.position.z += dz;
+                    if (g.position.z > 22) {
+                        g.position.z -= 600;
+                        const c = getCurrentCounty();
+                        g.userData.board.material.map.dispose();
+                        g.userData.board.material.map = RealismAssets.createRoadSignTexture(c.name, c.hwy, c.town);
+                        g.userData.board.material.needsUpdate = true;
+                    }
+                });
+
+                // Update Realistic 3D Traffic Cars & SUVs
+                trafficCars.forEach(car => {
+                    const relMps = ((state.speed - car.userData.speedKmh) / 3.6);
+                    car.position.z += relMps * dt;
+                    if (car.position.z > 40) car.position.z = -380 - Math.random() * 60;
+                    else if (car.position.z < -450) car.position.z = 35;
+
+                    // Proximity collision check
+                    if (Math.abs(car.position.x - state.x) < 2.25 && Math.abs(car.position.z - 2.2) < 6.2) {
+                        state.x += (state.x >= car.position.x ? 1.8 : -1.8);
+                        state.speed *= 0.65;
+                        state.cargoHealth = Math.max(20, state.cargoHealth - 3);
+                        SoundEngine.playAirBrake();
+                        showToast('TRAFFIC CONTACT! CARGO INTEGRITY -3%', 'rose');
+                    }
+                });
+
+                updatePedestrianCrossings(dz, elapsed);
+            }
+
+            function updatePedestrianCrossings(dz, elapsed) {
+                let nextSignal = null;
+                const cycleLength = 42;
+
+                pedestrianCrossings.forEach(crossing => {
+                    crossing.position.z += dz;
+                    if (crossing.position.z > 30) crossing.position.z -= 660;
+                    else if (crossing.position.z < -650) crossing.position.z += 660;
+
+                    const phase = ((elapsed + crossing.userData.phaseOffset) % cycleLength + cycleLength) % cycleLength;
+                    const signal = phase < 22 ? 'GREEN' : (phase < 26 ? 'AMBER' : 'RED');
+                    crossing.userData.lamps.forEach(lampSet => {
+                        ['RED', 'AMBER', 'GREEN'].forEach(color => {
+                            const lamp = lampSet[color];
+                            lamp.material.emissiveIntensity = color === signal ? 1.7 : 0.025;
+                        });
+                    });
+
+                    crossing.userData.walkers.forEach((person, i) => {
+                        const walkTime = phase - 27 - i * 0.28;
+                        const walking = walkTime >= 0 && walkTime < 14;
+                        person.visible = walking;
+                        if (!walking) {
+                            person.position.x = -14.1;
+                            return;
+                        }
+                        const progress = THREE.MathUtils.clamp(walkTime / 14, 0, 1);
+                        person.position.x = -14.1 + progress * 28.2;
+                        const step = Math.sin(elapsed * 7.2 + i * 1.4) * 0.43;
+                        person.userData.leftLeg.rotation.z = step;
+                        person.userData.rightLeg.rotation.z = -step;
+                        person.userData.leftArm.rotation.z = -step * 0.7;
+                        person.userData.rightArm.rotation.z = step * 0.7;
+                    });
+
+                    if (crossing.position.z < 8 && (!nextSignal || crossing.position.z > nextSignal.z)) {
+                        nextSignal = { z: crossing.position.z, state: signal };
+                    }
+                });
+
+                state.trafficSignal = nextSignal ? nextSignal.state : 'GREEN';
+            }
+
+            function updateCamera(dt) {
+                if (state.cameraMode === 0) {
+                    // Realistic Dynamic Chase Camera
+                    camera.position.x += (state.x * 0.86 - camera.position.x) * Math.min(1, 8 * dt);
+                    camera.position.y += (5.3 - camera.position.y) * Math.min(1, 8 * dt);
+                    camera.position.z += (15.2 - camera.position.z) * Math.min(1, 8 * dt);
+                    camera.lookAt(state.x * 0.92, 2.3, -16);
+                } else if (state.cameraMode === 1) {
+                    // 360° Free-Orbit 3D Inspection Camera around Truck OR Traffic Car/SUV
+                    let targetPos = new THREE.Vector3(state.x, 2.2, 2.0);
+                    if (state.orbitTargetIdx > 0) {
+                        const car = trafficCars[(state.orbitTargetIdx - 1) % trafficCars.length];
+                        if (car) targetPos.set(car.position.x, 1.3, car.position.z);
+                    }
+                    const dist = state.orbitTargetIdx === 0 ? state.orbitDist : Math.min(state.orbitDist, 10.5);
+                    const cx = targetPos.x + Math.sin(state.orbitYaw) * Math.cos(state.orbitPitch) * dist;
+                    const cy = targetPos.y + Math.sin(state.orbitPitch) * dist;
+                    const cz = targetPos.z + Math.cos(state.orbitYaw) * Math.cos(state.orbitPitch) * dist;
+                    camera.position.set(cx, Math.max(0.7, cy), cz);
+                    camera.lookAt(targetPos);
+                } else if (state.cameraMode === 2) {
+                    // Driver Seat Cockpit View
+                    camera.position.set(state.x - 0.56, 2.82, -0.85);
+                    camera.lookAt(state.x - state.steerAngle * 14, 2.45, -35);
+                } else {
+                    // Hood / Bumper Highway Cam
+                    camera.position.set(state.x, 2.15, -3.95);
+                    camera.lookAt(state.x - state.steerAngle * 12, 1.9, -40);
+                }
+            }
+
+            function updateDashboardUI() {
+                const absSpd = Math.round(Math.abs(state.speed));
+                document.getElementById('hud-speed').textContent = absSpd;
+                document.getElementById('hud-gear').textContent = state.speed < -0.5 ? 'R' : (absSpd === 0 ? 'N' : `D${Math.min(12, Math.ceil(absSpd / 12))}`);
+                document.getElementById('hud-rpm').style.width = `${Math.min(100, 10 + ((absSpd % 13) / 13) * 82)}%`;
+
+                const c = getCurrentCounty();
+                document.getElementById('hud-hwy').textContent = state.activeCorridor.code;
+                document.getElementById('hud-county').textContent = `${c.name.toUpperCase()} COUNTY`;
+                document.getElementById('hud-town').textContent = `SECTOR: ${c.town.toUpperCase()}`;
+
+                const rem = Math.max(0, state.totalDist - state.distTraveled);
+                document.getElementById('hud-dist').textContent = `${rem.toFixed(1)} KM LEFT`;
+                document.getElementById('hud-progress').style.width = `${Math.min(100, (state.distTraveled / state.totalDist) * 100)}%`;
+                document.getElementById('hud-cargo').textContent = `${state.cargoHealth}%`;
+                document.getElementById('hud-payout').textContent = `KES ${state.activeCorridor.payout.toLocaleString()}`;
+                const signalPill = document.getElementById('traffic-status-pill');
+                signalPill.dataset.state = state.trafficSignal;
+                document.getElementById('traffic-status-label').textContent = `NEXT SIGNAL: ${state.trafficSignal}`;
+            }
+
+            function cycleCamera() {
+                state.cameraMode = (state.cameraMode + 1) % CAM_NAMES.length;
+                document.getElementById('cam-mode-label').textContent = CAM_NAMES[state.cameraMode];
+                document.getElementById('orbit-hint-pill').classList.toggle('hidden', state.cameraMode !== 1);
+                document.getElementById('traffic-status-pill').classList.toggle('hidden', state.cameraMode === 1);
+                showToast(`CAMERA: ${CAM_NAMES[state.cameraMode]}`, 'amber');
+            }
+
+            function cycleOrbitTarget() {
+                state.orbitTargetIdx = (state.orbitTargetIdx + 1) % (trafficCars.length + 1);
+                const label = state.orbitTargetIdx === 0
+                    ? 'SEMI-TRUCK'
+                    : trafficCars[state.orbitTargetIdx - 1].userData.name;
+                document.getElementById('orbit-target-label').textContent = label;
+            }
+
+            function setWeather(mode) {
+                state.weatherMode = mode;
+                skyDome.visible = mode !== 2;
+                if (mode === 0) { // Daylight
+                    skyDome.material.color.setHex(0xffffff);
+                    sunLight.intensity = 1.65;
+                    sunLight.color.setHex(0xfffbeb);
+                    hemiLight.intensity = 0.95;
+                    scene.background.setHex(0x6ba4d9);
+                    scene.fog.color.setHex(0x8ab8e0);
+                } else if (mode === 1) { // Golden Rift Sunset
+                    skyDome.material.color.setHex(0xffad72);
+                    sunLight.intensity = 1.4;
+                    sunLight.color.setHex(0xfb923c);
+                    hemiLight.intensity = 0.75;
+                    scene.background.setHex(0x7c2d12);
+                    scene.fog.color.setHex(0x9a3412);
+                } else { // Nairobi Night
+                    sunLight.intensity = 0.25;
+                    hemiLight.intensity = 0.35;
+                    scene.background.setHex(0x050914);
+                    scene.fog.color.setHex(0x050914);
+                }
+            }
+
+            function setClarity(ratio) {
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ratio));
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                showToast(`CLARITY SCALE: ${ratio}x`, 'sky');
+            }
+
+            function selectCorridor(id) {
+                const c = KENYA_NETWORK.corridors.find(item => item.id === id);
+                if (!c) return;
+                state.activeCorridor = c;
+                state.countyIdx = 0;
+                state.distTraveled = 0;
+                state.totalDist = c.distance;
+                document.getElementById('hud-route').textContent = c.name.toUpperCase();
+                UI.toggleMap(false);
+                showToast(`ROUTE SET: ${c.code} (${c.name})`, 'emerald');
+            }
+
+            function warpToCounty(name) {
+                const c = KENYA_NETWORK.counties47.find(item => item.name === name);
+                if (!c) return;
+                state.activeCorridor = {
+                    id: c.code, code: c.hwy, name: `${c.name} (${c.town})`,
+                    distance: 220, payout: 110000, counties: [c.name, 'Nakuru', 'Nairobi', 'Mombasa']
+                };
+                state.countyIdx = 0;
+                state.distTraveled = 0;
+                state.totalDist = 220;
+                document.getElementById('hud-route').textContent = `${c.name.toUpperCase()} → ${c.town.toUpperCase()}`;
+                UI.toggleMap(false);
+                showToast(`GPS LOCATION: ${c.name.toUpperCase()} COUNTY`, 'emerald');
+            }
+
+            function requestLandscapeFullscreen() {
+                const docEl = document.documentElement;
+                if (!document.fullscreenElement && docEl.requestFullscreen) {
+                    docEl.requestFullscreen().catch(() => {});
+                }
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+                document.getElementById('portrait-banner').style.display = 'none';
+            }
+
+            function toggleHeadlights() {
+                state.headlightsOn = !state.headlightsOn;
+                leftBeam.visible = state.headlightsOn;
+                rightBeam.visible = state.headlightsOn;
+                showToast(`HEADLIGHTS: ${state.headlightsOn ? 'ON' : 'OFF'}`, 'sky');
+            }
+
+            function toggleAutopilot() {
+                state.laneAssist = !state.laneAssist;
+                showToast(`LANE ASSIST: ${state.laneAssist ? 'ACTIVE' : 'OFF'}`, 'emerald');
+            }
+
+            function recoverTruck() {
+                state.x = 3.4;
+                state.steerAngle = 0;
+                state.speed = 0;
+                SoundEngine.playAirBrake();
+                showToast('RECOVERED TO HIGHWAY LANE', 'amber');
+            }
+
+            function triggerHorn() {
+                SoundEngine.playHorn();
+            }
+
+            function onResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            return {
+                init, inputs, cycleCamera, cycleOrbitTarget, setWeather, setClarity,
+                selectCorridor, warpToCounty, requestLandscapeFullscreen,
+                toggleHeadlights, toggleAutopilot, recoverTruck, triggerHorn
+            };
+        })();
+
+        /**
+         * 5. DUAL STEERING CONTROLLER: ROTARY STEERING WHEEL + GYROSCOPE TILT + KEYS
+         */
+        const Controls = (() => {
+            const MODES = ['WHEEL', 'TILT', 'KEYS'];
+            let modeIdx = 0; // 0: WHEEL, 1: TILT, 2: KEYS
+            let sensitivity = 1.2;
+
+            // Rotary Wheel State (-225 deg to +225 deg)
+            let wheelDeg = 0;
+            let isDraggingWheel = false;
+            let lastPointerAngle = 0;
+
+            // Gyroscope Tilt State
+            let rawGamma = 0;
+            let rawBeta = 0;
+            let zeroOffset = 0;
+            let tiltNorm = 0;
+            let gyroActive = false;
+            let desktopTiltActive = false;
+
+            function cycleSteeringMode() {
+                modeIdx = (modeIdx + 1) % MODES.length;
+                const mode = MODES[modeIdx];
+                document.getElementById('steer-mode-label').textContent = mode;
+                document.getElementById('steer-mode-icon').textContent = mode === 'WHEEL' ? '☸️' : (mode === 'TILT' ? '📐' : '⌨️');
+
+                document.getElementById('ui-wheel-container').classList.toggle('hidden', mode !== 'WHEEL');
+                document.getElementById('ui-tilt-container').classList.toggle('hidden', mode !== 'TILT');
+                document.getElementById('ui-buttons-container').classList.toggle('hidden', mode !== 'KEYS');
+
+                if (mode === 'TILT') {
+                    requestGyroPermission();
+                }
+                showToast(`STEERING MODE: ${mode}`, 'sky');
+            }
+
+            // 1. Rotary Steering Wheel Interaction
+            function initRotaryWheel() {
+                const wheelEl = document.getElementById('steering-wheel-svg');
+
+                function getAngleFromCenter(clientX, clientY) {
+                    const rect = wheelEl.getBoundingClientRect();
+                    const cx = rect.left + rect.width / 2;
+                    const cy = rect.top + rect.height / 2;
+                    return Math.atan2(clientY - cy, clientX - cx) * (180 / Math.PI);
+                }
+
+                const onDown = (e) => {
+                    e.preventDefault();
+                    SoundEngine.init();
+                    isDraggingWheel = true;
+                    const pt = e.touches ? e.touches[0] : e;
+                    lastPointerAngle = getAngleFromCenter(pt.clientX, pt.clientY);
+                };
+
+                const onMove = (e) => {
+                    if (!isDraggingWheel) return;
+                    if (e.cancelable) e.preventDefault();
+                    const pt = e.touches ? e.touches[0] : e;
+                    const curAngle = getAngleFromCenter(pt.clientX, pt.clientY);
+                    let delta = curAngle - lastPointerAngle;
+                    if (delta > 180) delta -= 360;
+                    if (delta < -180) delta += 360;
+                    wheelDeg = THREE.MathUtils.clamp(wheelDeg + delta, -225, 225);
+                    lastPointerAngle = curAngle;
+                    updateWheelGraphic();
+                };
+
+                const onUp = () => { isDraggingWheel = false; };
+
+                wheelEl.addEventListener('mousedown', onDown);
+                window.addEventListener('mousemove', onMove);
+                window.addEventListener('mouseup', onUp);
+
+                wheelEl.addEventListener('touchstart', onDown, { passive: false });
+                window.addEventListener('touchmove', onMove, { passive: false });
+                window.addEventListener('touchend', onUp);
+            }
+
+            function updateWheelGraphic() {
+                const wheelEl = document.getElementById('steering-wheel-svg');
+                wheelEl.style.transform = `rotate(${wheelDeg}deg)`;
+                document.getElementById('wheel-deg-readout').textContent = `${Math.round(wheelDeg)}°`;
+            }
+
+            // 2. Device Gyroscope Tilt Steering + Desktop Fallback Slider
+            function requestGyroPermission() {
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(res => {
+                            if (res === 'granted') {
+                                enableDeviceOrientationListener();
+                                showToast('GYROSCOPE TILT SENSOR ACTIVE', 'emerald');
+                            }
+                        })
+                        .catch(() => showToast('TILT PERMISSION DENIED', 'rose'));
+                } else {
+                    enableDeviceOrientationListener();
+                }
+            }
+
+            function enableDeviceOrientationListener() {
+                if (gyroActive) return;
+                gyroActive = true;
+                window.addEventListener('deviceorientation', e => {
+                    if (e.gamma === null || desktopTiltActive) return;
+                    rawGamma = e.gamma;
+                    rawBeta = e.beta || 0;
+                    // Handle landscape orientation tilt axis automatically
+                    const isLandscape = window.innerWidth > window.innerHeight;
+                    const tiltRaw = isLandscape ? rawBeta : rawGamma;
+                    const calibrated = tiltRaw - zeroOffset;
+                    tiltNorm = THREE.MathUtils.clamp((calibrated / 28) * sensitivity, -1, 1);
+                    updateTiltDisplay(calibrated);
+                });
+            }
+
+            function updateTiltDisplay(angle) {
+                document.getElementById('tilt-angle-val').textContent = `${angle.toFixed(1)}°`;
+                document.getElementById('tilt-horizon-bar').style.transform = `rotate(${THREE.MathUtils.clamp(angle, -35, 35)}deg)`;
+            }
+
+            function initDesktopTiltDrag() {
+                const track = document.getElementById('tilt-horizon-bar').parentElement;
+                const updateFromPointer = e => {
+                    const rect = track.getBoundingClientRect();
+                    const normalized = THREE.MathUtils.clamp(((e.clientX - rect.left) / rect.width) * 2 - 1, -1, 1);
+                    tiltNorm = normalized;
+                    updateTiltDisplay(normalized * 28);
+                };
+                track.addEventListener('pointerdown', e => {
+                    desktopTiltActive = true;
+                    track.setPointerCapture(e.pointerId);
+                    updateFromPointer(e);
+                });
+                track.addEventListener('pointermove', e => {
+                    if (desktopTiltActive) updateFromPointer(e);
+                });
+                const release = () => {
+                    if (!desktopTiltActive) return;
+                    desktopTiltActive = false;
+                    tiltNorm = 0;
+                    updateTiltDisplay(0);
+                };
+                track.addEventListener('pointerup', release);
+                track.addEventListener('pointercancel', release);
+                track.addEventListener('lostpointercapture', release);
+            }
+
+            function calibrateTilt() {
+                const isLandscape = window.innerWidth > window.innerHeight;
+                zeroOffset = isLandscape ? rawBeta : rawGamma;
+                tiltNorm = 0;
+                updateTiltDisplay(0);
+                showToast('TILT HORIZON ZEROED', 'emerald');
+            }
+
+            // 3. Keyboard & Pedal Bindings
+            function initPedalsAndKeys() {
+                const bindHold = (id, prop, onStart) => {
+                    const el = document.getElementById(id);
+                    const start = (e) => { e.preventDefault(); SoundEngine.init(); Sim.inputs[prop] = true; el.classList.add('active'); if (onStart) onStart(); };
+                    const end = (e) => { e.preventDefault(); Sim.inputs[prop] = false; el.classList.remove('active'); };
+                    el.addEventListener('mousedown', start);
+                    el.addEventListener('mouseup', end);
+                    el.addEventListener('mouseleave', end);
+                    el.addEventListener('touchstart', start, { passive: false });
+                    el.addEventListener('touchend', end, { passive: false });
+                };
+
+                bindHold('pedal-gas', 'gas');
+                bindHold('pedal-brake', 'brake', () => SoundEngine.playAirBrake());
+                bindHold('btn-steer-left', 'left');
+                bindHold('btn-steer-right', 'right');
+
+                window.addEventListener('keydown', e => {
+                    SoundEngine.init();
+                    const k = e.key.toLowerCase();
+                    if (k === 'w' || e.key === 'ArrowUp') Sim.inputs.gas = true;
+                    if (k === 's' || e.key === 'ArrowDown') Sim.inputs.brake = true;
+                    if (k === 'a' || e.key === 'ArrowLeft') Sim.inputs.left = true;
+                    if (k === 'd' || e.key === 'ArrowRight') Sim.inputs.right = true;
+                    if (k === 'v') Sim.cycleCamera();
+                    if (k === 'h') Sim.triggerHorn();
+                    if (k === 'm') UI.toggleMap();
+                });
+
+                window.addEventListener('keyup', e => {
+                    const k = e.key.toLowerCase();
+                    if (k === 'w' || e.key === 'ArrowUp') Sim.inputs.gas = false;
+                    if (k === 's' || e.key === 'ArrowDown') Sim.inputs.brake = false;
+                    if (k === 'a' || e.key === 'ArrowLeft') Sim.inputs.left = false;
+                    if (k === 'd' || e.key === 'ArrowRight') Sim.inputs.right = false;
+                });
+            }
+
+            function getSteerNormalized(dt) {
+                const mode = MODES[modeIdx];
+                // Keyboard always overrides smoothly if pressed
+                if (Sim.inputs.left || Sim.inputs.right) {
+                    const keyDir = (Sim.inputs.right ? 1 : 0) - (Sim.inputs.left ? 1 : 0);
+                    wheelDeg = THREE.MathUtils.lerp(wheelDeg, keyDir * 160, Math.min(1, 10 * dt));
+                    updateWheelGraphic();
+                    return THREE.MathUtils.clamp((wheelDeg / 225) * sensitivity, -1, 1);
+                }
+
+                if (mode === 'WHEEL') {
+                    // Self-centering spring physics when released
+                    if (!isDraggingWheel && Math.abs(wheelDeg) > 0.2) {
+                        wheelDeg *= Math.pow(0.04, dt);
+                        if (Math.abs(wheelDeg) < 0.5) wheelDeg = 0;
+                        updateWheelGraphic();
+                    }
+                    return THREE.MathUtils.clamp((wheelDeg / 225) * sensitivity, -1, 1);
+                }
+
+                if (mode === 'TILT') {
+                    return tiltNorm;
+                }
+
+                return 0;
+            }
+
+            function setSensitivity(val) {
+                sensitivity = parseFloat(val);
+                document.getElementById('sens-readout').textContent = `${sensitivity.toFixed(1)}x`;
+            }
+
+            function init() {
+                initRotaryWheel();
+                initDesktopTiltDrag();
+                initPedalsAndKeys();
+            }
+
+            return { init, cycleSteeringMode, requestGyroPermission, calibrateTilt, getSteerNormalized, setSensitivity };
+        })();
+
+        /**
+         * 6. UI CONTROLLER FOR 47-COUNTY MAP & SETTINGS
+         */
+        const UI = (() => {
+            function buildMapLists() {
+                const corrEl = document.getElementById('corridor-list');
+                corrEl.innerHTML = '';
+                KENYA_NETWORK.corridors.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-press w-full text-left p-3 rounded-2xl bg-slate-900/90 border border-slate-700 hover:border-sky-400 flex flex-col gap-0.5';
+                    btn.onclick = () => Sim.selectCorridor(c.id);
+                    btn.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <span class="px-2 py-0.5 rounded bg-emerald-600 text-white font-mono text-[10px] font-bold">${c.code}</span>
+                            <span class="font-mono text-xs text-amber-300 font-bold">KES ${c.payout.toLocaleString()}</span>
+                        </div>
+                        <div class="font-display font-bold text-xs sm:text-sm text-white mt-0.5">${c.name}</div>
+                        <div class="text-[10px] font-mono text-slate-400">${c.distance} KM • ${c.counties.length} COUNTIES</div>
+                    `;
+                    corrEl.appendChild(btn);
+                });
+
+                renderCounties(KENYA_NETWORK.counties47);
+            }
+
+            function renderCounties(list) {
+                const grid = document.getElementById('counties-grid');
+                grid.innerHTML = '';
+                list.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-press p-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-emerald-400 text-left';
+                    btn.onclick = () => Sim.warpToCounty(c.name);
+                    btn.innerHTML = `
+                        <div class="flex justify-between text-[9px] font-mono">
+                            <span class="text-slate-500">#${c.code}</span>
+                            <span class="text-sky-400 font-bold">${c.hwy}</span>
+                        </div>
+                        <div class="font-display font-bold text-xs text-white truncate">${c.name}</div>
+                        <div class="text-[10px] font-mono text-slate-400 truncate">${c.town}</div>
+                    `;
+                    grid.appendChild(btn);
+                });
+            }
+
+            function filterCounties() {
+                const q = document.getElementById('county-search').value.trim().toLowerCase();
+                const filtered = KENYA_NETWORK.counties47.filter(c =>
+                    c.name.toLowerCase().includes(q) || c.town.toLowerCase().includes(q) || c.hwy.toLowerCase().includes(q)
+                );
+                renderCounties(filtered);
+            }
+
+            function toggleMap(force) {
+                const m = document.getElementById('modal-map');
+                const show = force !== undefined ? force : m.classList.contains('hidden');
+                m.classList.toggle('hidden', !show);
+            }
+
+            function toggleSettings() {
+                document.getElementById('modal-settings').classList.toggle('hidden');
+            }
+
+            return { buildMapLists, filterCounties, toggleMap, toggleSettings };
+        })();
+
+        window.onload = function () {
+            UI.buildMapLists();
+            Controls.init();
+            Sim.init();
+        };
+    </script>
+</body>
+</html>
