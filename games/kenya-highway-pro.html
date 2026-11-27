@@ -888,6 +888,7 @@
             let gantries = [];
             let trafficCars = []; // Detailed 3D SUVs, Sedans & Matatus
             let pedestrianCrossings = [];
+            let routeFeatures = [];
             let rollingWheels = [];
             let leftBeam, rightBeam, brakeLightMeshes = [];
 
@@ -1152,6 +1153,7 @@
                 }
 
                 buildPedestrianCrossings();
+                buildRoundaboutJunction();
             }
 
             function createHighwayGantry(zPos) {
@@ -1333,6 +1335,133 @@
                     scene.add(crossing);
                     pedestrianCrossings.push(crossing);
                 });
+            }
+
+            function createRoadRibbon(parent, points, width, material) {
+                const curve = new THREE.CatmullRomCurve3(points.map(([x, z]) => new THREE.Vector3(x, 0.035, z)));
+                const samples = curve.getPoints(48);
+                const vertices = [];
+                const indices = [];
+                samples.forEach((point, i) => {
+                    const before = samples[Math.max(0, i - 1)];
+                    const after = samples[Math.min(samples.length - 1, i + 1)];
+                    const dx = after.x - before.x;
+                    const dz = after.z - before.z;
+                    const length = Math.hypot(dx, dz) || 1;
+                    const nx = -dz / length * width * 0.5;
+                    const nz = dx / length * width * 0.5;
+                    vertices.push(point.x + nx, point.y, point.z + nz, point.x - nx, point.y, point.z - nz);
+                    if (i < samples.length - 1) {
+                        const n = i * 2;
+                        indices.push(n, n + 2, n + 1, n + 1, n + 2, n + 3);
+                    }
+                });
+                const geometry = new THREE.BufferGeometry();
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+                geometry.setIndex(indices);
+                geometry.computeVertexNormals();
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.receiveShadow = true;
+                parent.add(mesh);
+                return mesh;
+            }
+
+            function buildRoundaboutJunction() {
+                const junction = new THREE.Group();
+                junction.position.set(0, 0, -235);
+                const asphalt = new THREE.MeshStandardMaterial({ color: 0x252b2e, roughness: 0.84, metalness: 0.04 });
+                const paint = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.76 });
+                const curb = new THREE.MeshStandardMaterial({ color: 0xd6d3c9, roughness: 0.8 });
+                const grass = new THREE.MeshStandardMaterial({ color: 0x3e7135, roughness: 0.94 });
+                const centerX = 23;
+
+                // A compact Kenyan highway exit with two curved approach lanes.
+                const branches = [
+                    [[12.4, 13], [15.1, 10.5], [17.6, 7.8], [20.1, 4.8]],
+                    [[20.1, -4.8], [17.6, -7.8], [15.1, -10.5], [12.4, -13]],
+                    [[27, -9.1], [30, -12.5], [35, -14.2], [41, -14.2]]
+                ];
+                branches.forEach(points => {
+                    createRoadRibbon(junction, points, 7.2, asphalt);
+                    [-3.35, 3.35].forEach(offset => {
+                        const shifted = points.map(([x, z], i) => {
+                            const next = points[Math.min(points.length - 1, i + 1)];
+                            const prev = points[Math.max(0, i - 1)];
+                            const dx = next[0] - prev[0], dz = next[1] - prev[1], len = Math.hypot(dx, dz) || 1;
+                            return [x - dz / len * offset, z + dx / len * offset];
+                        });
+                        createRoadRibbon(junction, shifted, 0.16, paint);
+                    });
+                });
+
+                // Circulating lane, raised central island, and painted yield bars.
+                const ring = new THREE.Mesh(new THREE.RingGeometry(5.25, 9.1, 96), asphalt);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.set(centerX, 0.045, 0);
+                ring.receiveShadow = true;
+                junction.add(ring);
+                const island = new THREE.Mesh(new THREE.CylinderGeometry(5.15, 5.45, 0.38, 64), curb);
+                island.position.set(centerX, 0.19, 0);
+                island.castShadow = true;
+                island.receiveShadow = true;
+                junction.add(island);
+                const islandTop = new THREE.Mesh(new THREE.CircleGeometry(5.05, 64), grass);
+                islandTop.rotation.x = -Math.PI / 2;
+                islandTop.position.set(centerX, 0.395, 0);
+                junction.add(islandTop);
+
+                const treeMat = new THREE.MeshStandardMaterial({ color: 0x28613a, roughness: 0.9 });
+                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x76513a, roughness: 0.95 });
+                [[-1.7, -1.2], [1.8, 1.45], [-0.4, 2.55]].forEach(([x, z], i) => {
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 1.1, 8), trunkMat);
+                    trunk.position.set(centerX + x, 0.95, z);
+                    const crown = new THREE.Mesh(new THREE.SphereGeometry(0.95 + i * 0.08, 12, 9), treeMat);
+                    crown.position.set(centerX + x, 1.85, z);
+                    crown.castShadow = true;
+                    junction.add(trunk, crown);
+                });
+
+                // Reflective direction boards and chevrons make the turn readable at speed.
+                const signMat = new THREE.MeshStandardMaterial({ color: 0x166534, roughness: 0.55, metalness: 0.12 });
+                const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.6, 8), curb);
+                signPost.position.set(13.1, 1.3, 16.2);
+                const signBoard = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.92, 0.12), signMat);
+                signBoard.position.set(13.1, 2.55, 16.2);
+                const signCanvas = document.createElement('canvas');
+                signCanvas.width = 512;
+                signCanvas.height = 160;
+                const signCtx = signCanvas.getContext('2d');
+                signCtx.fillStyle = '#14532d';
+                signCtx.fillRect(0, 0, 512, 160);
+                signCtx.strokeStyle = '#f8fafc';
+                signCtx.lineWidth = 8;
+                signCtx.strokeRect(8, 8, 496, 144);
+                signCtx.fillStyle = '#f8fafc';
+                signCtx.font = 'bold 48px Arial';
+                signCtx.textAlign = 'center';
+                signCtx.fillText('ROUNDABOUT', 256, 66);
+                signCtx.font = 'bold 34px Arial';
+                signCtx.fillText('SLOW  •  GIVE WAY', 256, 116);
+                const signTexture = new THREE.CanvasTexture(signCanvas);
+                signTexture.encoding = THREE.sRGBEncoding;
+                const signText = new THREE.Mesh(new THREE.PlaneGeometry(2.45, 0.76), new THREE.MeshBasicMaterial({ map: signTexture, side: THREE.DoubleSide }));
+                signText.position.set(13.1, 2.55, 16.27);
+                junction.add(signPost, signBoard, signText);
+                [-2.2, 0, 2.2].forEach(z => {
+                    const bar = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.035, 0.2), paint);
+                    bar.position.set(12.7, 0.055, z + 10.5);
+                    junction.add(bar);
+                });
+                for (let i = 0; i < 8; i++) {
+                    const angle = Math.PI * 0.72 + i * 0.12;
+                    const chevron = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.08, 0.34), paint);
+                    chevron.position.set(centerX + Math.cos(angle) * 9.32, 0.08, Math.sin(angle) * 9.32);
+                    chevron.rotation.y = -angle;
+                    junction.add(chevron);
+                }
+
+                scene.add(junction);
+                routeFeatures.push(junction);
             }
 
             function createTruckProfile(points, width, material) {
@@ -1922,6 +2051,13 @@
                     obj.position.z += dz;
                     if (obj.position.z > 25) obj.position.z -= 672;
                     else if (obj.position.z < -650) obj.position.z += 672;
+                });
+
+                // Recycle the curved exit and roundabout with the moving highway scenery.
+                routeFeatures.forEach(feature => {
+                    feature.position.z += dz;
+                    if (feature.position.z > 35) feature.position.z -= 660;
+                    else if (feature.position.z < -650) feature.position.z += 660;
                 });
 
                 // Recycle Overhead KeNHA Gantries
