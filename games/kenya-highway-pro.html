@@ -87,11 +87,15 @@
         #traffic-status-pill[data-state="AMBER"] { border-color: rgba(251, 191, 36, .8); color: #fde68a; }
         #traffic-status-pill[data-state="RED"] { border-color: rgba(251, 113, 133, .8); color: #fecdd3; }
 
+        /* Larger steering wheel for easier touch control. */
+        #ui-wheel-container { width: 148px; height: 148px; }
+        @media (min-width: 640px) { #ui-wheel-container { width: 164px; height: 164px; } }
+
         /* Keep the driving controls clear on short landscape phone screens. */
         @media screen and (orientation: landscape) and (max-height: 520px) {
             header { top: 4px !important; }
             footer { bottom: 4px !important; }
-            #ui-wheel-container { width: 96px !important; height: 96px !important; }
+            #ui-wheel-container { width: 124px !important; height: 124px !important; }
             #pedal-brake { height: 68px !important; }
             #pedal-gas { height: 88px !important; }
             footer .hud-panel { padding-top: 5px !important; padding-bottom: 5px !important; }
