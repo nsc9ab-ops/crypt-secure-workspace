@@ -889,6 +889,10 @@
             let trafficCars = []; // Detailed 3D SUVs, Sedans & Matatus
             let pedestrianCrossings = [];
             let routeFeatures = [];
+            let journeyFeatures = [];
+            let journeyPeople = [];
+            let journeyWaterRipples = [];
+            let checkpointBeacons = [];
             let rollingWheels = [];
             let leftBeam, rightBeam, brakeLightMeshes = [];
 
@@ -1154,6 +1158,7 @@
 
                 buildPedestrianCrossings();
                 buildRoundaboutJunction();
+                buildJourneyScenery();
             }
 
             function createHighwayGantry(zPos) {
@@ -1462,6 +1467,317 @@
 
                 scene.add(junction);
                 routeFeatures.push(junction);
+            }
+
+            function makeLandmarkBoard(parent, title, subtitle, x, y, z, width = 5.8) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 768;
+                canvas.height = 224;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#075232';
+                ctx.fillRect(0, 0, 768, 224);
+                ctx.strokeStyle = '#f8fafc';
+                ctx.lineWidth = 10;
+                ctx.strokeRect(8, 8, 752, 208);
+                ctx.fillStyle = '#f8fafc';
+                ctx.textAlign = 'center';
+                ctx.font = 'bold 48px Arial';
+                ctx.fillText(title.toUpperCase(), 384, 92, 720);
+                ctx.fillStyle = '#facc15';
+                ctx.font = 'bold 30px Arial';
+                ctx.fillText(subtitle.toUpperCase(), 384, 158);
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.encoding = THREE.sRGBEncoding;
+                const board = new THREE.Mesh(
+                    new THREE.PlaneGeometry(width, width * 0.292),
+                    new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+                );
+                board.position.set(x, y, z);
+                parent.add(board);
+                return board;
+            }
+
+            function addRouteTree(parent, x, z, color, scale = 1) {
+                const tree = new THREE.Group();
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.2 * scale, 0.34 * scale, 3.7 * scale, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x60452e, roughness: 0.94 })
+                );
+                trunk.position.y = 1.85 * scale;
+                const crownMat = new THREE.MeshStandardMaterial({ color, roughness: 0.92 });
+                const crown = new THREE.Mesh(new THREE.SphereGeometry(1.9 * scale, 12, 9), crownMat);
+                crown.scale.set(1.4, 0.56, 1.05);
+                crown.position.y = 4.05 * scale;
+                crown.castShadow = true;
+                tree.add(trunk, crown);
+                tree.position.set(x, 0, z);
+                parent.add(tree);
+            }
+
+            function buildRiverBridge(parent, profile) {
+                const bridge = new THREE.Group();
+                bridge.position.z = -270;
+                const water = new THREE.Mesh(
+                    new THREE.PlaneGeometry(112, 26),
+                    new THREE.MeshStandardMaterial({ color: profile.water, roughness: 0.18, metalness: 0.12, transparent: true, opacity: 0.94 })
+                );
+                water.rotation.x = -Math.PI / 2;
+                water.position.y = -0.48;
+                bridge.add(water);
+
+                const bankMat = new THREE.MeshStandardMaterial({ color: profile.bank, roughness: 0.98 });
+                [-15.4, 15.4].forEach(z => {
+                    const bank = new THREE.Mesh(new THREE.BoxGeometry(112, 0.32, 5.2), bankMat);
+                    bank.position.set(0, -0.12, z);
+                    bank.receiveShadow = true;
+                    bridge.add(bank);
+                });
+
+                // Concrete span and wearing surface sit just above the highway plane.
+                const concrete = new THREE.Mesh(
+                    new THREE.BoxGeometry(29.2, 0.24, 27.5),
+                    new THREE.MeshStandardMaterial({ color: 0x858b8d, roughness: 0.83 })
+                );
+                concrete.position.set(0, -0.08, 0);
+                concrete.receiveShadow = true;
+                bridge.add(concrete);
+                const deck = new THREE.Mesh(
+                    new THREE.PlaneGeometry(26, 27),
+                    new THREE.MeshStandardMaterial({ color: 0x30363a, roughness: 0.82 })
+                );
+                deck.rotation.x = -Math.PI / 2;
+                deck.position.y = 0.046;
+                bridge.add(deck);
+
+                const railMat = new THREE.MeshStandardMaterial({ color: 0xc4c8c5, metalness: 0.6, roughness: 0.36 });
+                [-14.25, 14.25].forEach(x => {
+                    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.82, 27), railMat);
+                    rail.position.set(x, 0.48, 0);
+                    bridge.add(rail);
+                    for (let z = -12; z <= 12; z += 4) {
+                        const post = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.05, 0.24), railMat);
+                        post.position.set(x, 0.44, z);
+                        bridge.add(post);
+                    }
+                });
+                const pierMat = new THREE.MeshStandardMaterial({ color: 0x777c79, roughness: 0.9 });
+                [-12, 0, 12].forEach(x => {
+                    const pier = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.0, 1.25), pierMat);
+                    pier.position.set(x, -0.55, 0);
+                    bridge.add(pier);
+                });
+                for (let i = 0; i < 18; i++) {
+                    const ripple = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.8 + (i % 3) * 0.7, 0.012, 0.055),
+                        new THREE.MeshBasicMaterial({ color: 0x9bd8dc, transparent: true, opacity: 0.22 })
+                    );
+                    ripple.position.set(-43 + (i * 13 % 86), -0.445, -9 + (i * 7 % 18));
+                    bridge.add(ripple);
+                    journeyWaterRipples.push({ mesh: ripple, x: ripple.position.x, z: ripple.position.z, phase: i * 0.73 });
+                }
+                makeLandmarkBoard(bridge, profile.river, 'BRIDGE · SLOW', 18.5, 4.1, 11.8, 6.6);
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 4.1, 8), railMat);
+                post.position.set(18.5, 2.05, 11.8);
+                bridge.add(post);
+                parent.add(bridge);
+            }
+
+            function buildBusStage(parent, profile, routeId) {
+                const stage = new THREE.Group();
+                stage.position.z = -410;
+                const concrete = new THREE.MeshStandardMaterial({ color: 0x9b9789, roughness: 0.9 });
+                const darkMetal = new THREE.MeshStandardMaterial({ color: 0x38444a, metalness: 0.68, roughness: 0.36 });
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x1d5b40, roughness: 0.62 });
+                const platform = new THREE.Mesh(new THREE.BoxGeometry(12.5, 0.14, 8.5), concrete);
+                platform.position.set(18.2, 0.06, 0);
+                stage.add(platform);
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.28, 3.1), roofMat);
+                roof.position.set(17.3, 3.1, -0.3);
+                stage.add(roof);
+                [[14.5, -1.4], [20.1, -1.4], [14.5, 0.9], [20.1, 0.9]].forEach(([x, z]) => {
+                    const support = new THREE.Mesh(new THREE.BoxGeometry(0.16, 3.0, 0.16), darkMetal);
+                    support.position.set(x, 1.55, z);
+                    stage.add(support);
+                });
+                const bench = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.12, 0.55), new THREE.MeshStandardMaterial({ color: 0x81552e, roughness: 0.82 }));
+                bench.position.set(17.2, 0.72, 0.15);
+                stage.add(bench);
+                makeLandmarkBoard(stage, profile.stage, 'MATATU · BUS STAGE', 14.1, 3.25, 2.2, 5.7);
+                const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.8, 8), darkMetal);
+                signPost.position.set(14.1, 1.45, 2.2);
+                stage.add(signPost);
+
+                // Parked local shuttle / matatu with side glazing and wheel detail.
+                const bus = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(2.45, 2.55, 7.4), new THREE.MeshStandardMaterial({ color: profile.busColor, metalness: 0.24, roughness: 0.34 }));
+                body.position.y = 1.48;
+                body.castShadow = true;
+                const lower = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.65, 7.3), new THREE.MeshStandardMaterial({ color: 0xf4f1e6, roughness: 0.55 }));
+                lower.position.y = 0.76;
+                bus.add(body, lower);
+                const windowMat = new THREE.MeshPhysicalMaterial({ color: 0x10232a, roughness: 0.1, metalness: 0.2, clearcoat: 0.9 });
+                for (let i = 0; i < 5; i++) {
+                    [-1, 1].forEach(side => {
+                        const window = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.82, 0.95), windowMat);
+                        window.position.set(side * 1.24, 1.83, -2.55 + i * 1.23);
+                        bus.add(window);
+                    });
+                }
+                [[-1.22, 0.46, -2.45], [1.22, 0.46, -2.45], [-1.22, 0.46, 2.45], [1.22, 0.46, 2.45]].forEach(([x, y, z]) => {
+                    const wheel = createRealisticWheel(0.46, 0.3);
+                    wheel.position.set(x, y, z);
+                    bus.add(wheel);
+                });
+                bus.position.set(22.1, 0, -1.8);
+                stage.add(bus);
+
+                const people = [];
+                [[14.9, 0.8], [16.2, 1.2], [18.8, 1.2], [19.7, -2.8]].forEach(([x, z], i) => {
+                    const person = createPedestrian();
+                    person.position.set(x, 0.14, z);
+                    person.userData.baseY = 0.14;
+                    person.rotation.y = i % 2 ? Math.PI * 0.5 : -Math.PI * 0.5;
+                    stage.add(person);
+                    people.push({ person, phase: i * 1.7, routeId });
+                });
+                journeyPeople.push(...people);
+                parent.add(stage);
+            }
+
+            function buildCheckpoint(parent, profile) {
+                const checkpoint = new THREE.Group();
+                checkpoint.position.z = -545;
+                const boothMat = new THREE.MeshStandardMaterial({ color: 0xd6d1c4, roughness: 0.8 });
+                const roofMat = new THREE.MeshStandardMaterial({ color: 0x1b4d3e, roughness: 0.56 });
+                const postMat = new THREE.MeshStandardMaterial({ color: 0x58636a, metalness: 0.62, roughness: 0.42 });
+                const booth = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.8, 3.2), boothMat);
+                booth.position.set(20, 1.4, -1.1);
+                booth.castShadow = true;
+                const boothRoof = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.26, 3.8), roofMat);
+                boothRoof.position.set(20, 2.94, -1.1);
+                checkpoint.add(booth, boothRoof);
+                const boothWindow = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.76, 1.4), new THREE.MeshPhysicalMaterial({ color: 0x183540, roughness: 0.08, metalness: 0.15 }));
+                boothWindow.position.set(18.23, 1.94, -1.1);
+                checkpoint.add(boothWindow);
+                const sign = makeLandmarkBoard(checkpoint, profile.checkpoint, 'AXLE / MOBILE CHECK', 13.9, 4.3, 6.7, 7.4);
+                const signSupport = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 4.2, 8), postMat);
+                signSupport.position.set(13.9, 2.1, 6.7);
+                checkpoint.add(signSupport);
+
+                // Axle scale strip, cones, a portable barrier, and a flashing checkpoint beacon.
+                const scale = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.055, 6.8), new THREE.MeshStandardMaterial({ color: 0x555d60, metalness: 0.5, roughness: 0.45 }));
+                scale.position.set(8.2, 0.04, 1.5);
+                checkpoint.add(scale);
+                const hazard = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.72 });
+                for (let i = 0; i < 4; i++) {
+                    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.72, 10), hazard);
+                    cone.position.set(5.2 + (i % 2) * 5.8, 0.4, -2.8 + Math.floor(i / 2) * 8.5);
+                    checkpoint.add(cone);
+                }
+                const barrierPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 2.2, 8), postMat);
+                barrierPole.position.set(11.3, 1.1, 4.2);
+                const barrierArm = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.16, 0.18), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.6 }));
+                barrierArm.position.set(13.25, 2.0, 4.2);
+                for (let i = 0; i < 5; i++) {
+                    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.17, 0.19), hazard);
+                    stripe.position.set(11.2 + i * 0.83, 2.0, 4.2);
+                    checkpoint.add(stripe);
+                }
+                checkpoint.add(barrierPole, barrierArm);
+                const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshStandardMaterial({ color: 0xf87171, emissive: 0xdc2626, emissiveIntensity: 1.3 }));
+                beacon.position.set(20, 3.35, -1.1);
+                checkpoint.add(beacon);
+                checkpointBeacons.push(beacon);
+                const officer = createPedestrian();
+                officer.position.set(17.3, 0, 2.1);
+                officer.userData.baseY = 0;
+                officer.scale.setScalar(0.94);
+                checkpoint.add(officer);
+                journeyPeople.push({ person: officer, phase: 2.1, routeId: parent.userData.routeId });
+                parent.add(checkpoint);
+            }
+
+            function buildJourneyScenery() {
+                const activeId = activeJourneyProfile();
+                if (journeyFeatures.some(feature => feature.userData.routeId === activeId)) return;
+                journeyFeatures.forEach(feature => {
+                    scene.remove(feature);
+                    feature.traverse(node => {
+                        node.geometry?.dispose?.();
+                        const mats = Array.isArray(node.material) ? node.material : (node.material ? [node.material] : []);
+                        mats.forEach(mat => { mat.map?.dispose?.(); mat.dispose?.(); });
+                    });
+                });
+                journeyFeatures = [];
+                journeyPeople = [];
+                journeyWaterRipples = [];
+                checkpointBeacons = [];
+                const profiles = [
+                    { id: 'A104', biome: 'highland', river: 'MALEWA RIVER', stage: 'NAIVASHA', checkpoint: 'GILGIL WEIGHBRIDGE', water: 0x387f9a, bank: 0x806b48, busColor: 0x1b8256, greens: 0x416a32, routeTitle: 'GREAT RIFT VALLEY · MAI MAHIU' },
+                    { id: 'A109', biome: 'savanna', river: 'SABA SABA RIVER', stage: 'VOI', checkpoint: 'MARIAKANI WEIGHBRIDGE', water: 0x547b73, bank: 0x9a7445, busColor: 0xe2a523, greens: 0x59652d, routeTitle: 'TSAVO SAVANNAH · VOI' },
+                    { id: 'A1', biome: 'highland', river: 'NYANDO RIVER', stage: 'KISUMU', checkpoint: 'WEBUYE AXLE CHECK', water: 0x397c91, bank: 0x756b4f, busColor: 0x2b7cba, greens: 0x3b6738, routeTitle: 'WESTERN HIGHLANDS · NYANZA' },
+                    { id: 'A2', biome: 'highland', river: 'SAGANA RIVER', stage: 'NYERI · NANYUKI', checkpoint: 'ISIOLO CHECKPOINT', water: 0x438695, bank: 0x746d52, busColor: 0x198754, greens: 0x35633b, routeTitle: 'ABERDARE · MOUNT KENYA FOOTHILLS' },
+                    { id: 'A3_B8', biome: 'savanna', river: 'TANA RIVER', stage: 'GARISSA · HOLA', checkpoint: 'GARISSA ROAD CHECK', water: 0x5f7f66, bank: 0x9c8050, busColor: 0xb46e25, greens: 0x6d7136, routeTitle: 'TANA BASIN · NORTHERN FRONTIER' },
+                    { id: 'B3', biome: 'savanna', river: 'SONDU RIVER', stage: 'NAROK · BOMET', checkpoint: 'BOMET ROAD CHECK', water: 0x477e83, bank: 0x756849, busColor: 0x9455a6, greens: 0x526737, routeTitle: 'MAU HIGHLANDS · SOUTH RIFT' }
+                ];
+                const profile = profiles.find(item => item.id === activeId) || profiles[0];
+                {
+                    const root = new THREE.Group();
+                    root.userData.routeId = profile.id;
+                    root.visible = true;
+                    root.position.z = 0;
+                    const rockMat = new THREE.MeshStandardMaterial({ color: profile.bank, roughness: 1 });
+                    const hillMat = new THREE.MeshStandardMaterial({ color: profile.greens, roughness: 0.98 });
+                    for (let i = 0; i < 8; i++) {
+                        const side = i % 2 ? 1 : -1;
+                        const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12), i % 3 ? hillMat : rockMat);
+                        hill.scale.set(19 + (i % 3) * 9, 8 + (i % 4) * 3.5, 28 + (i % 2) * 16);
+                        hill.position.set(side * (44 + (i % 2) * 17), -2.6, -68 - i * 68);
+                        hill.receiveShadow = true;
+                        root.add(hill);
+                    }
+                    const treeColors = [profile.greens, 0x456d38, 0x6c7138];
+                    for (let i = 0; i < 22; i++) {
+                        const side = i % 2 ? 1 : -1;
+                        const x = side * (17.5 + (i % 4) * 3.2);
+                        const z = -24 - i * 28;
+                        addRouteTree(root, x, z, treeColors[i % treeColors.length], 0.68 + (i % 4) * 0.13);
+                        if (i % 4 === 0) {
+                            const boulder = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + (i % 3) * 0.3, 0), rockMat);
+                            boulder.position.set(-x * 1.55, 0.25, z - 5);
+                            boulder.scale.y = 0.55;
+                            root.add(boulder);
+                        }
+                    }
+                    makeLandmarkBoard(root, profile.routeTitle, profile.biome === 'highland' ? 'ELEVATION · HIGHLAND ROUTE' : 'SAVANNAH · ROUTE AHEAD', 0, 8.6, -105, 12.8);
+                    const gantryLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.19, 8, 10), new THREE.MeshStandardMaterial({ color: 0x68777b, metalness: 0.7, roughness: 0.42 }));
+                    gantryLeg.position.set(-13.5, 4, -105);
+                    root.add(gantryLeg);
+                    buildRiverBridge(root, profile);
+                    buildBusStage(root, profile, profile.id);
+                    buildCheckpoint(root, profile);
+                    scene.add(root);
+                    journeyFeatures.push(root);
+                }
+            }
+
+            function activeJourneyProfile() {
+                const id = state.activeCorridor.id;
+                if (['A104', 'A109', 'A1', 'A2', 'A3_B8', 'B3'].includes(id)) return id;
+                const code = state.activeCorridor.code;
+                if (code === 'A3' || code === 'B8') return 'A3_B8';
+                return ['A104', 'A109', 'A1', 'A2', 'B3'].includes(code) ? code : 'A104';
+            }
+
+            function activateJourneyScenery() {
+                const activeId = activeJourneyProfile();
+                if (!journeyFeatures.some(feature => feature.userData.routeId === activeId)) buildJourneyScenery();
+                journeyFeatures.forEach(feature => { feature.visible = feature.userData.routeId === activeId; });
+                if (groundMesh && groundMesh.material) {
+                    const biome = state.activeCorridor.biome;
+                    const groundColor = biome === 'coastal' ? 0x756447 : biome === 'savanna' ? 0x777248 : biome === 'metropolis' ? 0x4d6242 : 0x3d6040;
+                    groundMesh.material.color.setHex(groundColor);
+                }
             }
 
             function createTruckProfile(points, width, material) {
@@ -2059,6 +2375,28 @@
                     if (feature.position.z > 35) feature.position.z -= 660;
                     else if (feature.position.z < -650) feature.position.z += 660;
                 });
+                journeyFeatures.forEach(feature => {
+                    if (!feature.visible) return;
+                    feature.position.z += dz;
+                    if (feature.position.z > 660) feature.position.z -= 660;
+                    else if (feature.position.z < -660) feature.position.z += 660;
+                });
+                journeyPeople.forEach(({ person, phase }) => {
+                    const walk = Math.sin(elapsed * 1.8 + phase) * 0.11;
+                    person.userData.leftLeg.rotation.z = walk;
+                    person.userData.rightLeg.rotation.z = -walk;
+                    person.userData.leftArm.rotation.z = -walk * 0.65;
+                    person.userData.rightArm.rotation.z = walk * 0.65;
+                    person.position.y = (person.userData.baseY || 0) + Math.abs(walk) * 0.08;
+                });
+                journeyWaterRipples.forEach(({ mesh, x, z, phase }) => {
+                    mesh.position.x = x + Math.sin(elapsed * 0.8 + phase) * 0.38;
+                    mesh.position.z = z + Math.cos(elapsed * 0.55 + phase) * 0.18;
+                    mesh.material.opacity = 0.16 + (Math.sin(elapsed + phase) + 1) * 0.055;
+                });
+                checkpointBeacons.forEach(beacon => {
+                    beacon.material.emissiveIntensity = 0.55 + (Math.sin(elapsed * 5) + 1) * 0.62;
+                });
 
                 // Recycle Overhead KeNHA Gantries
                 gantries.forEach(g => {
@@ -2241,6 +2579,7 @@
                 state.countyIdx = 0;
                 state.distTraveled = 0;
                 state.totalDist = c.distance;
+                activateJourneyScenery();
                 document.getElementById('hud-route').textContent = c.name.toUpperCase();
                 UI.toggleMap(false);
                 showToast(`ROUTE SET: ${c.code} (${c.name})`, 'emerald');
@@ -2256,6 +2595,7 @@
                 state.countyIdx = 0;
                 state.distTraveled = 0;
                 state.totalDist = 220;
+                activateJourneyScenery();
                 document.getElementById('hud-route').textContent = `${c.name.toUpperCase()} → ${c.town.toUpperCase()}`;
                 UI.toggleMap(false);
                 showToast(`GPS LOCATION: ${c.name.toUpperCase()} COUNTY`, 'emerald');
