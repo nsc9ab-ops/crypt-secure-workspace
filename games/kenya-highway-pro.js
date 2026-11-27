@@ -166,6 +166,67 @@
             return { init, update, playHorn, playAirBrake };
         })();
 
+        // C++ vehicle dynamics are compiled to WebAssembly during the site build.
+        // A matching JavaScript path keeps local previews and unsupported browsers playable.
+        const VehiclePhysics = (() => {
+            let wasm = null;
+            let statePointer = 0;
+            const stateBytes = 4 * Float32Array.BYTES_PER_ELEMENT;
+
+            if (typeof WebAssembly !== 'undefined') {
+                window.addEventListener('vehicle-physics-ready', event => {
+                    const module = event.detail?.module;
+                    if (!module) return;
+                    wasm = module;
+                    statePointer = wasm._malloc(stateBytes);
+                    if (statePointer) showToast('C++ WEBASSEMBLY PHYSICS READY', 'emerald');
+                }, { once: true });
+                const moduleLoader = document.createElement('script');
+                moduleLoader.type = 'module';
+                moduleLoader.src = './vehicle-physics-loader.mjs';
+                moduleLoader.onerror = () => {};
+                document.head.appendChild(moduleLoader);
+            }
+
+            function step(vehicle, input, dt, steerInput) {
+                if (Math.abs(steerInput) > 0.01) vehicle.laneAssist = false;
+                const targetLane = vehicle.x > 6.3 ? 9.2 : 3.4;
+
+                if (wasm && statePointer) {
+                    const offset = statePointer >> 2;
+                    wasm.HEAPF32[offset] = vehicle.speed;
+                    wasm.HEAPF32[offset + 1] = vehicle.x;
+                    wasm.HEAPF32[offset + 2] = vehicle.steerAngle;
+                    wasm.HEAPF32[offset + 3] = vehicle.trailerYaw;
+                    wasm._physics_vehicle_step(statePointer, dt, input.gas ? 1 : 0, input.brake ? 1 : 0, steerInput, vehicle.laneAssist ? 1 : 0, targetLane);
+                    vehicle.speed = wasm.HEAPF32[offset];
+                    vehicle.x = wasm.HEAPF32[offset + 1];
+                    vehicle.steerAngle = wasm.HEAPF32[offset + 2];
+                    vehicle.trailerYaw = wasm.HEAPF32[offset + 3];
+                    return;
+                }
+
+                if (input.gas) vehicle.speed += 32 * dt;
+                else if (input.brake) vehicle.speed -= (vehicle.speed > 2 ? 65 : 22) * dt;
+                else {
+                    vehicle.speed *= Math.pow(0.72, dt);
+                    if (Math.abs(vehicle.speed) < 0.2) vehicle.speed = 0;
+                }
+                vehicle.speed = THREE.MathUtils.clamp(vehicle.speed, -30, 145);
+
+                if (Math.abs(steerInput) > 0.01) vehicle.steerAngle = steerInput * 0.48;
+                else if (vehicle.laneAssist && vehicle.speed > 5) {
+                    vehicle.steerAngle = THREE.MathUtils.clamp((targetLane - vehicle.x) * 0.16, -0.3, 0.3);
+                } else vehicle.steerAngle *= Math.pow(0.03, dt);
+
+                vehicle.x += Math.sin(vehicle.steerAngle) * (vehicle.speed / 3.6) * 0.74 * dt;
+                vehicle.x = THREE.MathUtils.clamp(vehicle.x, -11.3, 11.3);
+                vehicle.trailerYaw += (vehicle.steerAngle * 0.45 - vehicle.trailerYaw) * Math.min(1, 5.5 * dt);
+            }
+
+            return { step };
+        })();
+
         function showToast(msg, tone = 'sky') {
             const feed = document.getElementById('toast-feed');
             const el = document.createElement('div');
@@ -535,7 +596,7 @@
         const Sim = (() => {
             let scene, camera, renderer, envMap;
             let truckRoot, cabGroup, trailerGroup, interiorWheel;
-            let roadMesh, roadTex, groundMesh, skyDome;
+            let roadMesh, roadTex, groundMesh, skyDome, terrainBiomeUniform;
             let buildingsAndProps = [];
             let gantries = [];
             let trafficCars = []; // Detailed 3D SUVs, Sedans & Matatus
@@ -682,10 +743,44 @@
             }
 
             function buildKenyanWorld() {
-                // Kenyan Highland / Savannah Terrain
+                // Route tinted terrain with a small GLSL noise layer for varied soil and grass.
+                terrainBiomeUniform = { value: 0 };
+                const terrainMaterial = new THREE.MeshStandardMaterial({ color: 0x2d4c2b, roughness: 0.92 });
+                terrainMaterial.onBeforeCompile = shader => {
+                    shader.uniforms.uTerrainBiome = terrainBiomeUniform;
+                    shader.vertexShader = shader.vertexShader
+                        .replace('#include <common>', '#include <common>\nvarying vec2 vTerrainCoord;')
+                        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTerrainCoord = position.xy;');
+                    shader.fragmentShader = shader.fragmentShader
+                        .replace('#include <common>', `#include <common>
+                            varying vec2 vTerrainCoord;
+                            uniform float uTerrainBiome;
+                            float terrainHash(vec2 p) {
+                                p = fract(p * vec2(123.34, 456.21));
+                                p += dot(p, p + 45.32);
+                                return fract(p.x * p.y);
+                            }
+                            float terrainNoise(vec2 p) {
+                                vec2 i = floor(p);
+                                vec2 f = fract(p);
+                                f = f * f * (3.0 - 2.0 * f);
+                                return mix(mix(terrainHash(i), terrainHash(i + vec2(1.0, 0.0)), f.x),
+                                           mix(terrainHash(i + vec2(0.0, 1.0)), terrainHash(i + vec2(1.0, 1.0)), f.x), f.y);
+                            }`)
+                        .replace('#include <color_fragment>', `#include <color_fragment>
+                            float broadSoil = terrainNoise(vTerrainCoord * 0.021 + vec2(uTerrainBiome * 37.0));
+                            float fineSoil = terrainNoise(vTerrainCoord * 0.18);
+                            vec3 soilTint = mix(vec3(0.83, 0.86, 0.76), vec3(1.08, 1.04, 0.91), broadSoil);
+                            soilTint *= 0.96 + fineSoil * 0.08;
+                            if (uTerrainBiome > 0.5 && uTerrainBiome < 1.5) soilTint *= vec3(1.05, 1.01, 0.93);
+                            else if (uTerrainBiome > 1.5 && uTerrainBiome < 2.5) soilTint *= vec3(1.08, 1.04, 0.88);
+                            else if (uTerrainBiome > 2.5) soilTint *= vec3(0.92, 0.96, 0.90);
+                            diffuseColor.rgb *= soilTint;`);
+                };
+                terrainMaterial.customProgramCacheKey = () => 'kenya-route-terrain-v1';
                 groundMesh = new THREE.Mesh(
                     new THREE.PlaneGeometry(1000, 1000),
-                    new THREE.MeshStandardMaterial({ color: 0x2d4c2b, roughness: 0.92 })
+                    terrainMaterial
                 );
                 groundMesh.rotation.x = -Math.PI / 2;
                 groundMesh.position.y = -0.05;
@@ -1514,6 +1609,58 @@
                             parent.add(ridge);
                         }
                     });
+                } else if (profile.id === 'NAIROBI') {
+                    // Westlands and Upper Hill skyline, set back from the highway corridor.
+                    const glassTexture = RealismAssets.createBuildingFacadeTexture('glass_tower');
+                    const plazaTexture = RealismAssets.createBuildingFacadeTexture('kenyan_plaza');
+                    const glass = new THREE.MeshStandardMaterial({ map: glassTexture, roughness: 0.34, metalness: 0.22 });
+                    const plaza = new THREE.MeshStandardMaterial({ map: plazaTexture, roughness: 0.8, metalness: 0.02 });
+                    for (let i = 0; i < 12; i++) {
+                        const side = i % 2 ? 1 : -1;
+                        const tower = i % 3 === 0;
+                        const width = tower ? 10 + (i % 2) * 2 : 13;
+                        const depth = tower ? 10 : 15;
+                        const height = tower ? 31 + (i % 4) * 8 : 13 + (i % 5) * 2.2;
+                        const block = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), tower ? glass : plaza);
+                        block.position.set(side * (50 + (i % 3) * 9), height / 2, -72 - i * 42);
+                        block.castShadow = true;
+                        block.receiveShadow = true;
+                        parent.add(block);
+                        if (tower) {
+                            const roofPlant = new THREE.Mesh(new THREE.BoxGeometry(width * 0.36, 2.2, depth * 0.32), rock);
+                            roofPlant.position.set(block.position.x - side * width * 0.13, height + 1.1, block.position.z);
+                            parent.add(roofPlant);
+                        }
+                    }
+                } else if (profile.id === 'MOMBASA') {
+                    // Kilindini cargo stacks and gantry cranes distinguish the port approach.
+                    const containerColors = [0x9f322c, 0x254d68, 0x94743a, 0x58635b];
+                    for (let i = 0; i < 12; i++) {
+                        const row = Math.floor(i / 4);
+                        const col = i % 4;
+                        const box = new THREE.Mesh(
+                            new THREE.BoxGeometry(11.5, 2.7, 3.0),
+                            new THREE.MeshStandardMaterial({ color: containerColors[(i + row) % containerColors.length], roughness: 0.72, metalness: 0.14 })
+                        );
+                        box.position.set(-55 - row * 13, 1.35 + (col % 2) * 2.72, -110 - col * 38);
+                        parent.add(box);
+                    }
+                    const cranePaint = new THREE.MeshStandardMaterial({ color: 0x56656a, roughness: 0.52, metalness: 0.72 });
+                    [-1, 1].forEach((side, i) => {
+                        const x = side * 73;
+                        const frame = new THREE.Group();
+                        const legA = new THREE.Mesh(new THREE.BoxGeometry(0.72, 28, 0.72), cranePaint);
+                        const legB = legA.clone();
+                        legA.position.set(-5, 14, 0);
+                        legB.position.set(5, 14, 0);
+                        const boom = new THREE.Mesh(new THREE.BoxGeometry(24, 0.8, 0.8), cranePaint);
+                        boom.position.set(2, 28.2, 0);
+                        const tower = new THREE.Mesh(new THREE.BoxGeometry(0.7, 14, 0.7), cranePaint);
+                        tower.position.set(8, 21, 0);
+                        frame.add(legA, legB, boom, tower);
+                        frame.position.set(x, 0, -170 - i * 190);
+                        parent.add(frame);
+                    });
                 } else if (profile.id === 'A1') {
                     // Lake Victoria shoreline, reeds, and a reflective horizon.
                     const lake = new THREE.Mesh(new THREE.PlaneGeometry(160, 230), new THREE.MeshStandardMaterial({ color: profile.water, roughness: 0.22, metalness: 0.12 }));
@@ -1553,6 +1700,42 @@
                         kopje.castShadow = true;
                         parent.add(kopje);
                     }
+                    if (profile.id === 'A109') {
+                        // Tsavo's broad baobab crowns rise above the lower dry scrub.
+                        const bark = new THREE.MeshStandardMaterial({ color: 0x66503b, roughness: 1 });
+                        const crownMat = new THREE.MeshStandardMaterial({ color: 0x65703d, roughness: 0.98 });
+                        for (let i = 0; i < 5; i++) {
+                            const side = i % 2 ? 1 : -1;
+                            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.1, 8 + (i % 3), 9), bark);
+                            trunk.position.set(side * (52 + (i % 3) * 10), 4 + (i % 3) * 0.5, -105 - i * 112);
+                            trunk.castShadow = true;
+                            const crown = new THREE.Mesh(new THREE.SphereGeometry(4.8, 12, 8), crownMat);
+                            crown.scale.set(1.45, 0.46, 1.12);
+                            crown.position.set(trunk.position.x, trunk.position.y + 4.4, trunk.position.z);
+                            parent.add(trunk, crown);
+                        }
+                    } else {
+                        // The Tana basin is drier and more open, with sparse palms along the river.
+                        const palmTrunk = new THREE.MeshStandardMaterial({ color: 0x746044, roughness: 0.98 });
+                        const palmLeaf = new THREE.MeshStandardMaterial({ color: 0x657144, roughness: 0.95, side: THREE.DoubleSide });
+                        for (let i = 0; i < 5; i++) {
+                            const side = i % 2 ? 1 : -1;
+                            const x = side * (39 + (i % 3) * 8);
+                            const z = -125 - i * 108;
+                            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, 7.5, 7), palmTrunk);
+                            trunk.position.set(x, 3.75, z);
+                            const crown = new THREE.Group();
+                            for (let leaf = 0; leaf < 7; leaf++) {
+                                const frond = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.08, 4.4), palmLeaf);
+                                frond.position.z = -1.1;
+                                frond.rotation.x = -0.2;
+                                frond.rotation.y = leaf * (Math.PI * 2 / 7);
+                                crown.add(frond);
+                            }
+                            crown.position.set(x, 7.4, z);
+                            parent.add(trunk, crown);
+                        }
+                    }
                 } else {
                     // Rolling tea terraces give the Mau and western highlands a distinct profile.
                     const terrace = new THREE.MeshStandardMaterial({ color: profile.greens, roughness: 0.96 });
@@ -1584,6 +1767,8 @@
                 checkpointBeacons = [];
                 const profiles = [
                     { id: 'A104', biome: 'highland', river: 'MALEWA RIVER', stage: 'NAIVASHA', checkpoint: 'GILGIL WEIGHBRIDGE', water: 0x387f9a, bank: 0x806b48, busColor: 0x1b8256, greens: 0x416a32, routeTitle: 'GREAT RIFT VALLEY · MAI MAHIU' },
+                    { id: 'NAIROBI', biome: 'metropolis', river: 'NAIROBI RIVER', stage: 'WESTLANDS CBD', checkpoint: 'MLOLONGO WEIGHBRIDGE', water: 0x526e75, bank: 0x646c68, busColor: 0x1b8256, greens: 0x52624d, routeTitle: 'NAIROBI · EXPRESSWAY & UPPER HILL' },
+                    { id: 'MOMBASA', biome: 'coastal', river: 'KILINDINI CHANNEL', stage: 'MOMBASA PORT', checkpoint: 'MARIAKANI WEIGHBRIDGE', water: 0x357c91, bank: 0x9a7952, busColor: 0xb83c2f, greens: 0x5b6741, routeTitle: 'MOMBASA · KILINDINI PORT APPROACH' },
                     { id: 'A109', biome: 'savanna', river: 'SABA SABA RIVER', stage: 'VOI', checkpoint: 'MARIAKANI WEIGHBRIDGE', water: 0x547b73, bank: 0x9a7445, busColor: 0xe2a523, greens: 0x59652d, routeTitle: 'TSAVO SAVANNAH · VOI' },
                     { id: 'A1', biome: 'highland', river: 'NYANDO RIVER', stage: 'KISUMU', checkpoint: 'WEBUYE AXLE CHECK', water: 0x397c91, bank: 0x756b4f, busColor: 0x2b7cba, greens: 0x3b6738, routeTitle: 'WESTERN HIGHLANDS · NYANZA' },
                     { id: 'A2', biome: 'highland', river: 'SAGANA RIVER', stage: 'NYERI · NANYUKI', checkpoint: 'ISIOLO CHECKPOINT', water: 0x438695, bank: 0x746d52, busColor: 0x198754, greens: 0x35633b, routeTitle: 'ABERDARE · MOUNT KENYA FOOTHILLS' },
@@ -1591,6 +1776,7 @@
                     { id: 'B3', biome: 'savanna', river: 'SONDU RIVER', stage: 'NAROK · BOMET', checkpoint: 'BOMET ROAD CHECK', water: 0x477e83, bank: 0x756849, busColor: 0x9455a6, greens: 0x526737, routeTitle: 'MAU HIGHLANDS · SOUTH RIFT' }
                 ];
                 const profile = profiles.find(item => item.id === activeId) || profiles[0];
+                const sceneHint = profile.id === 'NAIROBI' ? 'URBAN EXPRESSWAY · CBD' : profile.id === 'MOMBASA' ? 'PORT CORRIDOR · COASTAL ROUTE' : profile.biome === 'highland' ? 'ELEVATION · HIGHLAND ROUTE' : profile.biome === 'coastal' ? 'COASTAL LOWLAND · ROUTE AHEAD' : 'SAVANNAH · ROUTE AHEAD';
                 {
                     const root = new THREE.Group();
                     root.userData.routeId = profile.id;
@@ -1622,7 +1808,7 @@
                     buildRegionalLandmarks(root, profile);
                     buildExpresswayFlyover(root, profile);
                     buildScenicCorner(root, profile);
-                    makeLandmarkBoard(root, profile.routeTitle, profile.biome === 'highland' ? 'ELEVATION · HIGHLAND ROUTE' : 'SAVANNAH · ROUTE AHEAD', 0, 8.6, -105, 12.8);
+                    makeLandmarkBoard(root, profile.routeTitle, sceneHint, 0, 8.6, -105, 12.8);
                     const gantryLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.19, 8, 10), new THREE.MeshStandardMaterial({ color: 0x68777b, metalness: 0.7, roughness: 0.42 }));
                     gantryLeg.position.set(-13.5, 4, -105);
                     root.add(gantryLeg);
@@ -1635,6 +1821,8 @@
             }
 
             function activeJourneyProfile() {
+                if (state.activeCorridor.countyName === 'Nairobi') return 'NAIROBI';
+                if (state.activeCorridor.countyName === 'Mombasa') return 'MOMBASA';
                 const id = state.activeCorridor.id;
                 if (['A104', 'A109', 'A1', 'A2', 'A3_B8', 'B3'].includes(id)) return id;
                 const code = state.activeCorridor.code;
@@ -1650,6 +1838,7 @@
                     const biome = state.activeCorridor.biome;
                     const groundColor = biome === 'coastal' ? 0x756447 : biome === 'savanna' ? 0x777248 : biome === 'metropolis' ? 0x4d6242 : 0x3d6040;
                     groundMesh.material.color.setHex(groundColor);
+                    if (terrainBiomeUniform) terrainBiomeUniform.value = biome === 'coastal' ? 1 : biome === 'savanna' ? 2 : biome === 'metropolis' ? 3 : 0;
                 }
             }
 
@@ -2215,41 +2404,17 @@
             }
 
             function updateVehiclePhysics(dt) {
-                // Acceleration & Braking
-                if (inputs.gas) {
-                    state.speed += 32 * dt;
-                } else if (inputs.brake) {
-                    if (state.speed > 2) state.speed -= 65 * dt;
-                    else state.speed -= 22 * dt;
-                } else {
-                    state.speed *= Math.pow(0.72, dt);
-                    if (Math.abs(state.speed) < 0.2) state.speed = 0;
-                }
-                state.speed = THREE.MathUtils.clamp(state.speed, -30, 145);
-
-                // Read unified steering value (-1.0 to +1.0) from Wheel, Tilt Gyro, or Keyboard
+                // Read unified steering input; the native C++/WASM core advances the vehicle state.
                 const steerInput = Controls.getSteerNormalized(dt);
-                if (Math.abs(steerInput) > 0.01) {
-                    state.laneAssist = false;
-                    state.steerAngle = steerInput * 0.48;
-                } else if (state.laneAssist && state.speed > 5) {
-                    const targetLane = state.x > 6.3 ? 9.2 : 3.4;
-                    state.steerAngle = THREE.MathUtils.clamp((targetLane - state.x) * 0.16, -0.3, 0.3);
-                } else {
-                    state.steerAngle *= Math.pow(0.03, dt);
-                }
+                VehiclePhysics.step(state, inputs, dt, steerInput);
 
                 const forwardMps = state.speed / 3.6;
                 rollingWheels.forEach(wheel => { wheel.rotation.x += (forwardMps * dt) / 0.56; });
-                state.x += Math.sin(state.steerAngle) * forwardMps * 0.74 * dt;
-                state.x = THREE.MathUtils.clamp(state.x, -11.3, 11.3);
 
                 truckRoot.position.x = state.x;
                 cabGroup.rotation.y = -state.steerAngle * 0.3;
                 cabGroup.rotation.z = state.steerAngle * (Math.abs(state.speed) / 145) * 0.06;
 
-                const targetTrailerYaw = state.steerAngle * 0.45;
-                state.trailerYaw += (targetTrailerYaw - state.trailerYaw) * Math.min(1, 5.5 * dt);
                 trailerGroup.rotation.y = state.trailerYaw;
 
                 if (interiorWheel) {
@@ -2522,7 +2687,7 @@
                 if (!c) return;
                 state.activeCorridor = {
                     id: c.code, code: c.hwy, name: `${c.name} (${c.town})`,
-                    distance: 220, payout: 110000, counties: [c.name, 'Nakuru', 'Nairobi', 'Mombasa']
+                    distance: 220, payout: 110000, counties: [c.name, 'Nakuru', 'Nairobi', 'Mombasa'], countyName: c.name, biome: c.biome
                 };
                 state.countyIdx = 0;
                 state.distTraveled = 0;

@@ -33,6 +33,22 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Build C++ vehicle physics for WebAssembly
+        shell: bash
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install latest
+          "$RUNNER_TEMP/emsdk/emsdk" activate latest
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          em++ games/vehicle-physics.cpp -O3 \
+            -s MODULARIZE=1 \
+            -s EXPORT_ES6=1 \
+            -s EXPORT_NAME=createVehiclePhysics \
+            -s ENVIRONMENT=web \
+            -s FILESYSTEM=0 \
+            -std=c++17 \
+            -s EXPORTED_FUNCTIONS='["_malloc","_free","_physics_vehicle_step"]' \
+            -o games/vehicle-physics.mjs
       - name: Build Android APK
         run: ./android/build-apk.sh
       - name: Upload static website
