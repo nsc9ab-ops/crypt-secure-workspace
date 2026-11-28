@@ -193,20 +193,25 @@
                 const targetLane = vehicle.x > 6.3 ? 9.2 : 3.4;
 
                 if (wasm && statePointer) {
-                    const offset = statePointer >> 2;
-                    wasm.HEAPF32[offset] = vehicle.speed;
-                    wasm.HEAPF32[offset + 1] = vehicle.x;
-                    wasm.HEAPF32[offset + 2] = vehicle.steerAngle;
-                    wasm.HEAPF32[offset + 3] = vehicle.trailerYaw;
-                    wasm._physics_vehicle_step(statePointer, dt, input.gas ? 1 : 0, input.brake ? 1 : 0, steerInput, vehicle.laneAssist ? 1 : 0, targetLane);
-                    vehicle.speed = wasm.HEAPF32[offset];
-                    vehicle.x = wasm.HEAPF32[offset + 1];
-                    vehicle.steerAngle = wasm.HEAPF32[offset + 2];
-                    vehicle.trailerYaw = wasm.HEAPF32[offset + 3];
-                    return;
+                    try {
+                        const offset = statePointer >> 2;
+                        wasm.HEAPF32[offset] = vehicle.speed;
+                        wasm.HEAPF32[offset + 1] = vehicle.x;
+                        wasm.HEAPF32[offset + 2] = vehicle.steerAngle;
+                        wasm.HEAPF32[offset + 3] = vehicle.trailerYaw;
+                        wasm._physics_vehicle_step(statePointer, dt, input.gas || input.cruise ? 1 : 0, input.brake ? 1 : 0, steerInput, vehicle.laneAssist ? 1 : 0, targetLane);
+                        vehicle.speed = wasm.HEAPF32[offset];
+                        vehicle.x = wasm.HEAPF32[offset + 1];
+                        vehicle.steerAngle = wasm.HEAPF32[offset + 2];
+                        vehicle.trailerYaw = wasm.HEAPF32[offset + 3];
+                        return;
+                    } catch (error) {
+                        wasm = null;
+                        showToast('USING LOCAL VEHICLE PHYSICS', 'amber');
+                    }
                 }
 
-                if (input.gas) vehicle.speed += 32 * dt;
+                if (input.gas || input.cruise) vehicle.speed += 32 * dt;
                 else if (input.brake) vehicle.speed -= (vehicle.speed > 2 ? 65 : 22) * dt;
                 else {
                     vehicle.speed *= Math.pow(0.72, dt);
@@ -630,7 +635,7 @@
                 trafficSignal: 'GREEN'
             };
 
-            const inputs = { gas: false, brake: false, left: false, right: false };
+            const inputs = { gas: false, cruise: false, brake: false, left: false, right: false };
             const CAM_NAMES = ['CHASE', '360° ORBIT', 'COCKPIT', 'HOOD'];
 
             function init() {
@@ -2725,6 +2730,8 @@
                 state.x = 3.4;
                 state.steerAngle = 0;
                 state.speed = 0;
+                inputs.gas = false;
+                inputs.cruise = false;
                 SoundEngine.playAirBrake();
                 showToast('RECOVERED TO HIGHWAY LANE', 'amber');
             }
@@ -2961,12 +2968,20 @@
                 bindHold('btn-steer-left', 'left');
                 bindHold('btn-steer-right', 'right');
 
+                const gasPedal = document.getElementById('pedal-gas');
+                gasPedal?.addEventListener('click', () => {
+                    Sim.inputs.cruise = !Sim.inputs.cruise;
+                    gasPedal.classList.toggle('active', Sim.inputs.cruise);
+                    gasPedal.querySelector('span:nth-child(2)')?.replaceChildren(document.createTextNode(Sim.inputs.cruise ? 'CRUISE' : 'DRIVE'));
+                    showToast(Sim.inputs.cruise ? 'CRUISE DRIVE ACTIVE' : 'CRUISE DRIVE OFF', Sim.inputs.cruise ? 'emerald' : 'sky');
+                });
+
                 window.addEventListener('keydown', e => {
                     if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
                     SoundEngine.init();
                     const k = e.key.toLowerCase();
                     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) e.preventDefault();
-                    if (k === 'w' || e.key === 'ArrowUp') Sim.inputs.gas = true;
+                    if (k === 'w' || e.key === 'ArrowUp' || e.key === ' ') Sim.inputs.gas = true;
                     if (k === 's' || e.key === 'ArrowDown') Sim.inputs.brake = true;
                     if (k === 'a' || e.key === 'ArrowLeft') Sim.inputs.left = true;
                     if (k === 'd' || e.key === 'ArrowRight') Sim.inputs.right = true;
@@ -2978,7 +2993,7 @@
                 window.addEventListener('keyup', e => {
                     if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
                     const k = e.key.toLowerCase();
-                    if (k === 'w' || e.key === 'ArrowUp') Sim.inputs.gas = false;
+                    if (k === 'w' || e.key === 'ArrowUp' || e.key === ' ') Sim.inputs.gas = false;
                     if (k === 's' || e.key === 'ArrowDown') Sim.inputs.brake = false;
                     if (k === 'a' || e.key === 'ArrowLeft') Sim.inputs.left = false;
                     if (k === 'd' || e.key === 'ArrowRight') Sim.inputs.right = false;
