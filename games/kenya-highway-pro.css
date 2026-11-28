@@ -130,6 +130,17 @@
             height: 100dvh;
             min-height: 100svh;
         }
+        /* Keep the driving HUD above the WebGL canvas and explicitly tappable
+           inside Android WebView and installed PWA shells. */
+        footer {
+            z-index: 40 !important;
+            pointer-events: none;
+        }
+        footer .pointer-events-auto,
+        footer button,
+        footer svg {
+            pointer-events: auto;
+        }
         #orientation-lock {
             display: none;
             position: fixed;

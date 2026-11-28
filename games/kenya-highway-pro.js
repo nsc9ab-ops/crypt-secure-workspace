@@ -2943,17 +2943,24 @@
             function initPedalsAndKeys() {
                 const bindHold = (id, prop, onStart) => {
                     const el = document.getElementById(id);
+                    if (!el) return;
+                    let pressed = false;
                     el.style.touchAction = 'none';
                     const start = (e) => {
-                        e.preventDefault();
-                        if (el.hasPointerCapture(e.pointerId)) return;
-                        el.setPointerCapture(e.pointerId);
+                        if (pressed) return;
+                        if (e.cancelable) e.preventDefault();
+                        pressed = true;
                         SoundEngine.init();
                         Sim.inputs[prop] = true;
                         el.classList.add('active');
                         if (onStart) onStart();
+                        if (e.pointerId !== undefined) {
+                            try { el.setPointerCapture(e.pointerId); } catch (error) {}
+                        }
                     };
                     const end = () => {
+                        if (!pressed) return;
+                        pressed = false;
                         Sim.inputs[prop] = false;
                         el.classList.remove('active');
                     };
@@ -2961,6 +2968,13 @@
                     el.addEventListener('pointerup', end);
                     el.addEventListener('pointercancel', end);
                     el.addEventListener('lostpointercapture', end);
+                    // Older embedded Android WebViews may expose touch events
+                    // without reliable pointer capture. Keep the controls usable.
+                    el.addEventListener('touchstart', start, { passive: false });
+                    el.addEventListener('touchend', end, { passive: true });
+                    el.addEventListener('touchcancel', end, { passive: true });
+                    el.addEventListener('mousedown', start);
+                    window.addEventListener('mouseup', end);
                 };
 
                 bindHold('pedal-gas', 'gas');
