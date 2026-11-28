@@ -23,7 +23,7 @@
     clock.id = 'sfnFuturisticClock';
     clock.className = 'sfn-clock-widget';
     clock.setAttribute('aria-label', 'Current time and date');
-    clock.innerHTML = '<div class="sfn-clock-face" aria-hidden="true"><div class="sfn-clock-ticks"></div><span class="sfn-clock-hand sfn-hour"></span><span class="sfn-clock-hand sfn-minute"></span><span class="sfn-clock-hand sfn-second"></span><i class="sfn-clock-pin"></i></div><div class="sfn-clock-readout"><strong class="sfn-clock-time">--:--:--</strong><span class="sfn-clock-date">Loading date</span><div class="sfn-clock-alarm-row"><input class="sfn-clock-alarm-input" type="time" aria-label="Alarm time"><button class="sfn-clock-alarm-button" type="button">SET ALARM</button></div><span class="sfn-clock-alarm-status">Alarm off</span></div>';
+    clock.innerHTML = '<div class="sfn-clock-face" aria-hidden="true"><div class="sfn-clock-ticks"></div><span class="sfn-clock-hand sfn-hour"></span><span class="sfn-clock-hand sfn-minute"></span><span class="sfn-clock-hand sfn-second"></span><i class="sfn-clock-pin"></i></div><div class="sfn-clock-readout"><strong class="sfn-clock-time">--:--:--</strong><span class="sfn-clock-date">Loading date</span><div class="sfn-clock-alarm-row"><input class="sfn-clock-alarm-input" type="time" aria-label="Alarm time"><button class="sfn-clock-alarm-button" type="button">SET ALARM</button><button class="sfn-clock-ring-button" type="button">CHOOSE RING</button><input class="sfn-clock-ring-input" type="file" accept="audio/*" hidden></div><span class="sfn-clock-alarm-status">Alarm off</span></div>';
     const ticks = clock.querySelector('.sfn-clock-ticks');
     for (let index = 0; index < 12; index += 1) {
       const tick = document.createElement('b');
@@ -38,10 +38,28 @@
     const dateReadout = clock.querySelector('.sfn-clock-date');
     const alarmInput = clock.querySelector('.sfn-clock-alarm-input');
     const alarmButton = clock.querySelector('.sfn-clock-alarm-button');
+    const ringButton = clock.querySelector('.sfn-clock-ring-button');
+    const ringInput = clock.querySelector('.sfn-clock-ring-input');
     const alarmStatus = clock.querySelector('.sfn-clock-alarm-status');
     let alarm = localStorage.getItem('sfn-clock-alarm') || '';
     let alarmTriggered = localStorage.getItem('sfn-clock-alarm-fired') || '';
     alarmInput.value = alarm;
+    let ringData = localStorage.getItem('sfn-clock-ringtone') || '';
+    let ringName = localStorage.getItem('sfn-clock-ringtone-name') || '';
+    const syncRing = () => { ringButton.textContent = ringName ? `RING: ${ringName.slice(0, 13)}` : 'CHOOSE RING'; };
+    ringButton.addEventListener('click', () => ringInput.click());
+    ringInput.addEventListener('change', () => {
+      const file = ringInput.files?.[0];
+      if (!file || !file.type.startsWith('audio/')) return;
+      if (file.size > 3 * 1024 * 1024) return toast('Choose an audio file under 3 MB for the alarm ring.');
+      const reader = new FileReader();
+      reader.onload = () => { ringData = String(reader.result); ringName = file.name; localStorage.setItem('sfn-clock-ringtone', ringData); localStorage.setItem('sfn-clock-ringtone-name', ringName); syncRing(); toast('Alarm ring saved on this device.'); };
+      reader.readAsDataURL(file);
+    });
+    const playRing = () => {
+      if (ringData) { const audio = new Audio(ringData); audio.volume = .85; audio.play().catch(() => {}); }
+      if (navigator.vibrate) navigator.vibrate([250, 120, 250, 120, 250]);
+    };
     const syncAlarm = () => {
       alarmStatus.textContent = alarm ? `Alarm ${alarm}` : 'Alarm off';
       alarmButton.textContent = alarm ? 'CLEAR' : 'SET ALARM';
@@ -53,6 +71,10 @@
       alarmTriggered = '';
       syncAlarm();
     });
+    let lastTap = 0;
+    const toggleAlarmPanel = () => { const open = !clock.classList.contains('sfn-clock-alarm-open'); clock.classList.toggle('sfn-clock-alarm-open', open); clock.setAttribute('aria-expanded', String(open)); if (open) alarmInput.focus({preventScroll:true}); };
+    clock.addEventListener('dblclick', event => { if (event.target.closest('input,button')) return; toggleAlarmPanel(); });
+    clock.addEventListener('pointerup', event => { if (event.target.closest('input,button')) return; const now = performance.now(); if (now - lastTap < 360) toggleAlarmPanel(); lastTap = now; });
     const update = () => {
       const now = new Date();
       const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
@@ -68,12 +90,13 @@
         alarmTriggered = minuteKey;
         clock.classList.add('sfn-alarm-ringing');
         alarmStatus.textContent = `ALARM ${alarm} · NOW`;
-        if (navigator.vibrate) navigator.vibrate([250, 120, 250]);
+        playRing();
         window.setTimeout(() => clock.classList.remove('sfn-alarm-ringing'), 7000);
       }
     };
     update();
     syncAlarm();
+    syncRing();
     clock._sfnTimer = window.setInterval(update, 250);
   }
 
@@ -759,6 +782,42 @@ document.addEventListener('input', event => {
     if (!grid || grid.querySelector('[data-action="setup-pattern"]')) return;
     grid.insertAdjacentHTML('beforeend', '<section class="setting-card"><div class="settings-card-head"><div><h3>Pattern unlock</h3><p>Draw a local pattern to reopen the encrypted workspace on this device.</p></div><span class="settings-card-icon">⌘</span></div><div class="settings-security-row"><span><strong>' + (record() ? 'Pattern enabled' : 'Not configured') + '</strong><small>Uses at least 4 dots. Keep your password for stronger protection and recovery.</small></span><button class="btn small" data-action="setup-pattern">' + (record() ? 'Replace pattern' : 'Set up pattern') + '</button></div></section>');
   }
+
+  // Keep the alarm controls quiet until the user intentionally double taps the clock.
+  const interactionStyle = document.createElement('style');
+  interactionStyle.textContent = `.sfn-clock-widget{cursor:pointer}.sfn-clock-widget.sfn-clock-alarm-open{cursor:default}.sfn-clock-alarm-row,.sfn-clock-alarm-status{display:none}.sfn-clock-widget.sfn-clock-alarm-open .sfn-clock-alarm-row{display:flex}.sfn-clock-widget.sfn-clock-alarm-open .sfn-clock-alarm-status{display:block}.sfn-clock-ring-button{padding:7px 9px;border:1px solid #377c70;border-radius:5px;background:#102d2c;color:#9affd4;font:700 8px var(--mono);cursor:pointer;white-space:nowrap}.sfn-clock-ring-input{display:none}.app-identity img,.profile-dot{animation:sfnProfileFloat 4s ease-in-out infinite;transform-origin:50% 65%;filter:drop-shadow(0 0 8px #43ffab33)}.top-actions .profile-dot{box-shadow:0 0 0 2px #2da96755,0 0 16px #2fffa855}.profile-dot{position:relative}.profile-dot:after{content:"";position:absolute;inset:-4px;border:1px solid #62ffba66;border-radius:inherit;animation:sfnProfileRing 2.8s ease-out infinite;pointer-events:none}@keyframes sfnProfileFloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-3px) rotate(2deg)}}@keyframes sfnProfileRing{0%{opacity:.8;transform:scale(.9)}80%,100%{opacity:0;transform:scale(1.35)}}@media(prefers-reduced-motion:reduce){.app-identity img,.profile-dot,.profile-dot:after{animation:none}}body.reduce-motion .app-identity img,body.reduce-motion .profile-dot,body.reduce-motion .profile-dot:after{animation:none!important}`;
+  document.head.append(interactionStyle);
+
+  function installSmartGuide() {
+    if (!secureKey || localStorage.getItem('sfn-smart-guide-seen') === '1' || document.querySelector('.sfn-guide-overlay')) return;
+    const steps = [
+      {eyebrow:'WELCOME TO SCOTT.F.N',title:'Your local smart guide is ready',copy:'I can show you around this private workspace and point you to the tasks you use most. Everything stays on this device.',action:'Start tour'},
+      {eyebrow:'PLAN YOUR DAY',title:'Calendar and clock',copy:'Open Calendar to add events. Double tap the rectangular clock to set an alarm, then choose an audio ring from your phone.',action:'Show calendar',view:'calendar'},
+      {eyebrow:'KEEP LIFE MOVING',title:'Workspace tools',copy:'Inventory, PDF Scanner, Finance, Camera, and your games are grouped in Workspace so the home view stays clear.',action:'Open workspace',view:'lifekeep'},
+      {eyebrow:'YOU ARE IN CONTROL',title:'Smart shortcuts',copy:'Use Settings for security, appearance, notifications, and pattern or biometric unlock. I will remember that you have completed this tour.',action:'Finish guide',view:'appearance'}
+    ];
+    let index = 0;
+    const overlay = document.createElement('div');
+    overlay.className = 'sfn-guide-overlay';
+    overlay.innerHTML = '<section class="sfn-guide-card" role="dialog" aria-modal="true" aria-labelledby="sfnGuideTitle"><div class="sfn-guide-orb" aria-hidden="true"><span>SFN</span></div><div class="eyebrow" data-guide-eyebrow></div><h2 id="sfnGuideTitle" data-guide-title></h2><p data-guide-copy></p><div class="sfn-guide-progress" data-guide-progress></div><div class="sfn-guide-actions"><button class="btn subtle" type="button" data-guide-skip>Skip</button><button class="btn primary" type="button" data-guide-next></button></div></section>';
+    document.body.append(overlay);
+    const eyebrow = overlay.querySelector('[data-guide-eyebrow]');
+    const title = overlay.querySelector('[data-guide-title]');
+    const copy = overlay.querySelector('[data-guide-copy]');
+    const progress = overlay.querySelector('[data-guide-progress]');
+    const next = overlay.querySelector('[data-guide-next]');
+    const finish = () => { localStorage.setItem('sfn-smart-guide-seen','1'); overlay.remove(); toast('SFN Guide is ready whenever you need it.'); };
+    const renderStep = () => { const step = steps[index]; eyebrow.textContent = step.eyebrow; title.textContent = step.title; copy.textContent = step.copy; next.textContent = step.action; progress.innerHTML = steps.map((_,i) => `<i class="${i === index ? 'active' : ''}"></i>`).join(''); };
+    next.addEventListener('click', () => { const step = steps[index]; if (step.view && typeof navigate === 'function') navigate(step.view); if (index === steps.length - 1) return finish(); index += 1; renderStep(); });
+    overlay.querySelector('[data-guide-skip]').addEventListener('click', finish);
+    overlay.addEventListener('click', event => { if (event.target === overlay) finish(); });
+    renderStep();
+  }
+  const guideStyle = document.createElement('style');
+  guideStyle.textContent = `.sfn-guide-overlay{position:fixed;inset:0;z-index:10030;display:grid;place-items:center;padding:20px;background:#02090be8;backdrop-filter:blur(15px);animation:sfnGuideFade .25s ease}.sfn-guide-card{width:min(100%,430px);padding:28px;border:1px solid #4af5bb88;border-radius:28px;background:linear-gradient(145deg,#102c27,#07141b 72%);box-shadow:0 24px 90px #000b,0 0 42px #18e99e25;color:#effff8;animation:sfnGuideRise .35s ease}.sfn-guide-orb{display:grid;place-items:center;width:76px;height:76px;margin:0 0 18px;border:1px solid #63ffc1;border-radius:25px;background:radial-gradient(circle at 35% 25%,#b5ffe355,#0c392d);box-shadow:0 0 24px #31f4a844,inset 0 0 18px #8affd41f;font:900 14px var(--mono);color:#b8ffe1;animation:sfnProfileFloat 3s ease-in-out infinite}.sfn-guide-card h2{margin:7px 0 10px;font-size:25px;letter-spacing:-.7px}.sfn-guide-card p{min-height:66px;margin:0;color:#aac4bc;font-size:12px;line-height:1.65}.sfn-guide-progress{display:flex;gap:6px;margin:18px 0}.sfn-guide-progress i{width:24px;height:3px;border-radius:5px;background:#285348}.sfn-guide-progress i.active{background:#66ffc1;box-shadow:0 0 10px #66ffc1}.sfn-guide-actions{display:flex;justify-content:space-between;gap:10px}.sfn-guide-actions .btn{min-height:43px;padding:10px 15px}.sfn-guide-actions .btn.primary{min-width:130px}@keyframes sfnGuideFade{from{opacity:0}to{opacity:1}}@keyframes sfnGuideRise{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}@media(max-width:480px){.sfn-guide-card{padding:22px;border-radius:23px}.sfn-guide-card h2{font-size:21px}.sfn-guide-card p{min-height:86px}}@media(prefers-reduced-motion:reduce){.sfn-guide-overlay,.sfn-guide-card,.sfn-guide-orb{animation:none}}`;
+  document.head.append(guideStyle);
+  window.addEventListener('sfn:unlocked', () => window.setTimeout(installSmartGuide, 700), {once:true});
+  window.setTimeout(installSmartGuide, 1200);
 
   patternStyle();
   addGateOption();
