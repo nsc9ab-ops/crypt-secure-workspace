@@ -15,6 +15,46 @@
   nav?.querySelector('[data-page="inventory"]')?.remove();
   nav?.querySelector('[data-page="messages"]')?.remove();
 
+  function installFuturisticClock() {
+    const actions = document.querySelector('.top-actions');
+    if (!actions || document.querySelector('#sfnFuturisticClock')) return;
+    const clock = document.createElement('section');
+    clock.id = 'sfnFuturisticClock';
+    clock.className = 'sfn-clock-widget';
+    clock.setAttribute('aria-label', 'Current time and date');
+    clock.innerHTML = '<div class="sfn-clock-face" aria-hidden="true"><div class="sfn-clock-ticks"></div><span class="sfn-clock-hand sfn-hour"></span><span class="sfn-clock-hand sfn-minute"></span><span class="sfn-clock-hand sfn-second"></span><i class="sfn-clock-pin"></i></div><div class="sfn-clock-readout"><strong class="sfn-clock-time">--:--:--</strong><span class="sfn-clock-date">Loading date</span></div>';
+    const ticks = clock.querySelector('.sfn-clock-ticks');
+    for (let index = 0; index < 12; index += 1) {
+      const tick = document.createElement('b');
+      tick.style.transform = `rotate(${index * 30}deg)`;
+      ticks.appendChild(tick);
+    }
+    actions.prepend(clock);
+    const hour = clock.querySelector('.sfn-hour');
+    const minute = clock.querySelector('.sfn-minute');
+    const second = clock.querySelector('.sfn-second');
+    const timeReadout = clock.querySelector('.sfn-clock-time');
+    const dateReadout = clock.querySelector('.sfn-clock-date');
+    const update = () => {
+      const now = new Date();
+      const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
+      const minutes = now.getMinutes() + seconds / 60;
+      const hours = (now.getHours() % 12) + minutes / 60;
+      hour.style.transform = `translateX(-50%) rotate(${hours * 30}deg)`;
+      minute.style.transform = `translateX(-50%) rotate(${minutes * 6}deg)`;
+      second.style.transform = `translateX(-50%) rotate(${seconds * 6}deg)`;
+      timeReadout.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+      dateReadout.textContent = now.toLocaleDateString([], {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'}).toUpperCase();
+    };
+    update();
+    clock._sfnTimer = window.setInterval(update, 250);
+  }
+
+  installFuturisticClock();
+  const clockStyle = document.createElement('style');
+  clockStyle.textContent = '.sfn-clock-widget{display:flex;align-items:center;gap:8px;margin-right:4px;padding:5px 9px 5px 5px;border:1px solid #168d61;border-radius:14px;background:linear-gradient(145deg,#061f18,#03110e);box-shadow:0 0 18px #00ff6230,inset 0 0 12px #00ff6212}.sfn-clock-face{position:relative;width:34px;height:34px;border:1px solid #50f0b4;border-radius:50%;background:radial-gradient(circle,#123e30 0 44%,#061712 45%);box-shadow:0 0 10px #21e69466}.sfn-clock-ticks,.sfn-clock-ticks b{position:absolute;inset:0}.sfn-clock-ticks b:after{content:"";position:absolute;left:50%;top:2px;width:1px;height:4px;background:#96ffda;transform:translateX(-50%);transform-origin:50% 15px}.sfn-clock-hand{position:absolute;left:50%;bottom:50%;width:1px;border-radius:2px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg)}.sfn-hour{height:9px;width:3px;background:#d6fff0}.sfn-minute{height:13px;width:2px;background:#6dffc2}.sfn-second{height:14px;background:#ffcf67;box-shadow:0 0 5px #ffcf67}.sfn-clock-pin{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 5px #fff}.sfn-clock-readout{display:grid;gap:2px;min-width:84px}.sfn-clock-time{font:700 10px var(--mono);letter-spacing:.08em;color:#d4ffed;white-space:nowrap}.sfn-clock-date{font:8px var(--mono);letter-spacing:.06em;color:#6fe6b4;white-space:nowrap}.sfn-clock-widget:hover{border-color:#55ffc0;box-shadow:0 0 24px #00ff6255,inset 0 0 12px #00ff6220}@media(max-width:760px){.sfn-clock-widget{padding:4px;margin-right:0}.sfn-clock-readout{display:none}.sfn-clock-face{width:32px;height:32px}}';
+  document.head.appendChild(clockStyle);
+
   const rail = document.querySelector('#railnav');
   if (rail && !rail.querySelector('[data-view="ringtones"]')) {
     const button = document.createElement('button');
