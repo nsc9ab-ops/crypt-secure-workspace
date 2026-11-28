@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.ContentValues;
 import android.content.pm.PackageManager;
+import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -74,6 +76,18 @@ public final class MainActivity extends FragmentActivity {
         if (android.os.Build.VERSION.SDK_INT >= 26) settings.setSafeBrowsingEnabled(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                Uri uri = Uri.parse(url);
+                if (!isTrustedSite(uri)) return;
+                String path = uri.getPath();
+                boolean kenyaHighway = path != null && path.endsWith("/games/kenya-highway-pro.html");
+                setRequestedOrientation(kenyaHighway
+                        ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                        : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
