@@ -252,7 +252,8 @@
   `;
   document.head.append(style);
   document.addEventListener('pointerdown', event => {
-    if (!state.input || state.panel?.contains(event.target) || event.target === state.input) return;
+    const path = event.composedPath?.() || [];
+    if (!state.input || state.panel?.contains(event.target) || path.includes(state.panel) || event.target === state.input) return;
     close(Boolean(event.target.closest?.('#accessForm button[type="submit"], #accessForm input[type="submit"]')));
   });
   document.addEventListener('change', event => {

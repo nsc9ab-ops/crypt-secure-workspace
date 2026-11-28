@@ -84,6 +84,12 @@
   const clockLayoutStyle = document.createElement('style');
   clockLayoutStyle.textContent = '.shell>main{grid-template-rows:auto 1fr!important}.shell main .topbar{height:auto!important;min-height:72px}@media(max-width:760px){.shell main .topbar{min-height:0;padding-bottom:8px}}';
   document.head.appendChild(clockLayoutStyle);
+  const clockDisplayStyle = document.createElement('style');
+  clockDisplayStyle.textContent = '.sfn-clock-widget{order:3!important;flex:1 0 100%!important;width:100%;min-height:100px;margin:8px 0 4px!important;padding:12px 20px!important;justify-content:flex-start;border-radius:18px!important;background:linear-gradient(105deg,#041812,#08291f 52%,#061923)!important;box-shadow:0 0 0 1px #57ffbf22,0 0 24px #00ff6230,inset 0 0 25px #00ff6212!important}.sfn-clock-face{flex-basis:76px!important;width:76px!important;height:76px!important}.sfn-clock-ticks b:after{transform-origin:50% 35px}.sfn-hour{height:21px}.sfn-minute{height:29px}.sfn-second{height:33px}.sfn-clock-readout{grid-template-columns:auto 1fr;align-items:center;column-gap:12px;min-width:0;flex:1}.sfn-clock-time{font-size:22px!important;letter-spacing:.1em}.sfn-clock-date{font-size:11px!important}.sfn-clock-alarm-row{grid-column:2}.sfn-clock-alarm-status{grid-column:2;font-size:9px}.sfn-clock-alarm-input{width:112px;padding:7px 8px;font-size:12px}.sfn-clock-alarm-button{padding:7px 11px;font-size:9px}@media(max-width:760px){.sfn-clock-widget{min-height:94px;padding:10px 12px!important;gap:12px}.sfn-clock-face{flex-basis:68px!important;width:68px!important;height:68px!important}.sfn-clock-time{font-size:20px!important}.sfn-clock-readout{grid-template-columns:1fr;gap:4px}.sfn-clock-alarm-row,.sfn-clock-alarm-status{grid-column:1}}';
+  document.head.appendChild(clockDisplayStyle);
+  const settingTabsStyle = document.createElement('style');
+  settingTabsStyle.textContent = '.sfn-setting-tabs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin:0 0 14px;padding:12px;border:1px solid #38d9bb66;border-radius:20px;background:linear-gradient(120deg,#06161b,#0a2522 55%,#091627);box-shadow:inset 0 0 28px #32e2c00b,0 10px 32px #0005}.sfn-setting-tab{position:relative;display:flex;min-width:0;min-height:78px;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:7px 3px;border:1px solid transparent;border-radius:14px;background:transparent;color:#93b9b6;font:700 10px var(--mono);cursor:pointer;transition:color .2s ease,background .2s ease,border-color .2s ease,transform .2s ease}.sfn-setting-tab:hover,.sfn-setting-tab.active{color:#dffff6;background:linear-gradient(155deg,#123b34,#0b252d);border-color:#53edc388;box-shadow:0 0 19px #30e9c025,inset 0 0 14px #45f6c512;transform:translateY(-2px)}.sfn-setting-orb{position:relative;isolation:isolate;display:grid;place-items:center;width:50px;height:34px;border:1px solid #45e8c5aa;border-radius:26px 26px 10px 10px;background:linear-gradient(180deg,#143e3c,#071923 75%);color:#a4ffe9;font-size:18px;box-shadow:0 0 13px #35edc633,inset 0 0 12px #6affde24;overflow:hidden}.sfn-setting-orb:before{content:"";position:absolute;z-index:-1;left:5px;right:5px;top:4px;height:19px;border:1px solid #88ffe844;border-bottom:0;border-radius:28px 28px 0 0;background:linear-gradient(180deg,#54ffd525,transparent);box-shadow:0 -2px 10px #53ffe044}.sfn-setting-tab.active .sfn-setting-orb{border-color:#a4ffe9;color:#f2fffc;box-shadow:0 0 22px #39f9ce88,inset 0 0 16px #61ffdc44;animation:sfnSettingTabGlow 2.7s ease-in-out infinite}.settings-dashboard>.setting-card[hidden]{display:none!important}@keyframes sfnSettingTabGlow{50%{filter:brightness(1.24);transform:translateY(-1px)}}@media(max-width:760px){.sfn-setting-tabs{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:8px;border-radius:18px}.sfn-setting-tab{min-height:67px;font-size:9px}.sfn-setting-orb{width:45px;height:30px;font-size:16px}}@media(prefers-reduced-motion:reduce){.sfn-setting-tab,.sfn-setting-tab.active .sfn-setting-orb{transition:none;animation:none}}body.reduce-motion .sfn-setting-tab,body.reduce-motion .sfn-setting-tab.active .sfn-setting-orb{transition:none;animation:none!important}';
+  document.head.appendChild(settingTabsStyle);
 
   const rail = document.querySelector('#railnav');
   if (rail && !rail.querySelector('[data-view="ringtones"]')) {
@@ -158,6 +164,7 @@
   const oldRender = render;
   render = function () {
     oldRender();
+    if (state.view === 'appearance') installSettingsTabs();
     if (state.view === 'pdfscan') { document.querySelector('#panel').innerHTML = pdfScanView(); renderPageList(); }
     if (state.view === 'ringtones') document.querySelector('#panel').innerHTML = ringtoneView();
     if (state.view === 'arcade') document.querySelector('#panel').innerHTML = arcadeView();
@@ -168,6 +175,58 @@
     installArcadeBottomNav();
     updateBottomNav();
   };
+
+  function installSettingsTabs() {
+    const grid = document.querySelector('#settingsGrid.settings-dashboard');
+    if (!grid || grid.dataset.tabbed === '1') return;
+    const cards = [...grid.querySelectorAll(':scope > .setting-card')];
+    if (!cards.length) return;
+    const groups = [
+      {id:'display',label:'Display',icon:'◒',match:/atmosphere|wallpaper|interface color/i},
+      {id:'security',label:'Security',icon:'◓',match:/security|sign-in|quick pin|pattern unlock/i},
+      {id:'comfort',label:'Comfort',icon:'◑',match:/accessibility|comfort/i},
+      {id:'layout',label:'Layout',icon:'◐',match:/workspace layout|arrange your workspace/i},
+      {id:'alerts',label:'Alerts',icon:'◒',match:/sounds|notifications/i},
+      {id:'privacy',label:'Privacy',icon:'◓',match:/privacy|storage/i}
+    ];
+    const tabs = document.createElement('div');
+    tabs.className = 'sfn-setting-tabs';
+    tabs.setAttribute('role', 'tablist');
+    tabs.setAttribute('aria-label', 'Settings categories');
+    let active = localStorage.getItem('sfn-settings-tab') || 'display';
+    for (const group of groups) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sfn-setting-tab';
+      button.dataset.settingTab = group.id;
+      button.setAttribute('role', 'tab');
+      button.innerHTML = `<span class="sfn-setting-orb" aria-hidden="true">${group.icon}</span><span>${group.label}</span>`;
+      button.addEventListener('click', () => {
+        active = group.id;
+        localStorage.setItem('sfn-settings-tab', active);
+        showGroup();
+      });
+      tabs.append(button);
+    }
+    grid.before(tabs);
+    grid.dataset.tabbed = '1';
+    function showGroup() {
+      const selected = groups.some(group => group.id === active) ? active : 'display';
+      for (const group of groups) {
+        const button = tabs.querySelector(`[data-setting-tab="${group.id}"]`);
+        const selectedGroup = group.id === selected;
+        button?.classList.toggle('active', selectedGroup);
+        button?.setAttribute('aria-selected', String(selectedGroup));
+      }
+      for (const card of cards) {
+        const heading = card.querySelector('h3')?.textContent || '';
+        const group = groups.find(item => item.match.test(heading));
+        const category = group?.id || 'security';
+        card.hidden = category !== selected;
+      }
+    }
+    showGroup();
+  }
 
   function updateBottomNav() {
     const active = state.view === 'chat' ? 'messages' : state.view === 'device' ? 'devices' : state.view;
