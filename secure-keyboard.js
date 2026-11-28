@@ -1,9 +1,9 @@
 /* Scott.F.N in-app keyboard, styled after a compact Android keyboard. */
 (() => {
-  const fieldIds = new Set(['accessPass','memberPassword','memberPasswordConfirm','memberPhone','memberCode','memberLookup']);
+  const fieldIds = new Set(['accessPass','memberEmail','memberPassword','memberPasswordConfirm','memberPhone','memberCode','memberLookup']);
   const numericIds = new Set(['memberCode']);
   const passwordIds = new Set(['accessPass','memberPassword','memberPasswordConfirm']);
-  const state = { input: null, mode: 'text', panel: null, saved: null, shifted: false, symbols: false };
+  const state = { input: null, mode: 'text', panel: null, saved: null, shifted: false, symbols: false, handlingKey: false };
   const originalAttributes = new WeakMap();
   const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
@@ -19,8 +19,14 @@
       input.dataset.sfnKeyboard = '1';
       input.setAttribute('inputmode', 'none');
       input.setAttribute('autocomplete', 'off');
-      input.addEventListener('focus', () => open(input));
+      input.addEventListener('focus', () => { if (state.input !== input) open(input); });
       input.addEventListener('blur', () => queueMicrotask(() => {
+        // Some mobile browsers move focus to a tapped button even when the
+        // pointer event was cancelled. Keep the secure input session alive.
+        if (state.handlingKey) {
+          if (state.input === input) input.focus({ preventScroll: true });
+          return;
+        }
         if (state.input === input && !state.panel?.contains(document.activeElement)) close();
       }));
     });
@@ -75,7 +81,13 @@
     state.panel.addEventListener('pointerdown', event => {
       if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
+      event.stopPropagation();
+      state.handlingKey = true;
       onKey(event);
+      queueMicrotask(() => {
+        state.handlingKey = false;
+        if (state.input) state.input.focus({ preventScroll: true });
+      });
     });
     state.panel.addEventListener('click', event => {
       if (event.detail === 0) {
@@ -172,7 +184,7 @@
     state.panel.querySelector('.sfn-kb-shell').innerHTML =
       '<div class="sfn-kb-entry"><span class="sfn-kb-search" aria-hidden="true">⌕</span><span class="sfn-kb-value">'+esc(previewValue())+'</span><span class="sfn-kb-entry-status">●</span></div>'+
       '<div class="sfn-kb-toolbar"><span class="sfn-kb-mark" aria-hidden="true">SF</span><span class="sfn-kb-caption">'+title()+'</span><span class="sfn-kb-spacer"></span>'+(state.mode === 'password' ? '<button class="sfn-kb-tool" type="button" data-action="visibility" aria-label="Show or hide password">◉</button>' : '')+'<span class="sfn-kb-lock" aria-label="Local keyboard">◆</span><button class="sfn-kb-tool sfn-kb-close" type="button" data-action="close" aria-label="Close keyboard">⌄</button></div>'+
-      '<div class="sfn-kb-rows">'+rows.map((row,index)=>'<div class="sfn-kb-row sfn-kb-row-'+index+'">'+row.map(item=>'<button type="button" class="sfn-kb-key '+(item.kind||'')+'" data-action="'+esc(item.action)+'" data-value="'+esc(item.value)+'" aria-label="'+esc(item.action||item.value||item.label)+'"'+(item.action==='shift'?' aria-pressed="'+String(state.shifted)+'"':'')+'>'+esc(item.label)+'</button>').join('')+'</div>').join('')+'</div>'+
+      '<div class="sfn-kb-rows">'+rows.map((row,index)=>'<div class="sfn-kb-row sfn-kb-row-'+index+'">'+row.map(item=>'<button type="button" tabindex="-1" class="sfn-kb-key '+(item.kind||'')+'" data-action="'+esc(item.action)+'" data-value="'+esc(item.value)+'" aria-label="'+esc(item.action||item.value||item.label)+'"'+(item.action==='shift'?' aria-pressed="'+String(state.shifted)+'"':'')+'>'+esc(item.label)+'</button>').join('')+'</div>').join('')+'</div>'+
       '<div class="sfn-kb-foot"><span>ON-DEVICE INPUT</span><span>·</span><span>ENGLISH (UK)</span></div>';
     state.panel.classList.add('open');
     state.panel.setAttribute('aria-hidden', 'false');
