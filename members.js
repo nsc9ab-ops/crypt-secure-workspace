@@ -277,6 +277,9 @@ async function loadVerifiedUser(user){
   if(!user){clearMemberSession();if(!memberStatus)memberStatus='Signed out.';appBridge.render();return;}
   if(!appBridge.isUnlocked?.())return;
   if(user.email&&!user.phoneNumber&&!user.emailVerified){memberProfile=null;memberProfileState='idle';relationships=[];setStatus('Verify your email before using member search or messaging.');appBridge.render();return;}
+  // A verified member has completed private-call registration. Keep the home
+  // prompt out of the way on this device after the first successful sign-in.
+  try{localStorage.setItem('sfn-private-call-registered','1')}catch{}
   const handle=generatedHandle(user);
   const localProfile={uid:user.uid,handle,displayName:handle};
   cacheProfile(localProfile);

@@ -409,6 +409,18 @@
   navigator.serviceWorker.ready.then(watch).catch(() => {});
 })();
 
+/* Futuristic control-room styling for the settings interface. */
+(() => {
+  const style = document.createElement('style');
+  style.textContent = '.settings-hero{position:relative;overflow:hidden;background:linear-gradient(120deg,#071c20eF,#0b3329eF 52%,#111d3aeF)!important;border-color:#46e6c477!important;box-shadow:0 0 0 1px #55f3c01a,0 18px 50px #0007,inset 0 0 40px #24e5b512!important}.settings-hero:before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 0 46%,#8bfff522 47%,transparent 48% 100%),repeating-linear-gradient(90deg,transparent 0 38px,#5df7cc0b 39px 40px);pointer-events:none;animation:sfnSettingsScan 8s linear infinite}.settings-hero>*{position:relative;z-index:1}.settings-hero h2{font-family:var(--mono)!important;letter-spacing:.03em!important;text-transform:uppercase;text-shadow:0 0 18px #71ffd577}.settings-overview>div{position:relative;overflow:hidden;border-color:#2e927766!important;background:linear-gradient(145deg,#0b2527,#09181f)!important;box-shadow:inset 0 0 18px #36e6ca0d;transition:transform .25s ease,box-shadow .25s ease}.settings-overview>div:hover{transform:translateY(-3px);box-shadow:0 10px 24px #0005,0 0 18px #37e7be25}.settings-dashboard .setting-card{position:relative;overflow:hidden;border-color:#2d7b6b99!important;background:linear-gradient(145deg,#0b2224,#09151e)!important;box-shadow:0 10px 25px #0004,inset 0 1px #b0fff51a;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}.settings-dashboard .setting-card:before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--mint),#8ee8ff,transparent);transform:translateX(-100%);transition:transform .7s ease}.settings-dashboard .setting-card:hover{transform:translateY(-4px);border-color:#62f4cb!important;box-shadow:0 14px 30px #0007,0 0 24px #36e6bd22}.settings-dashboard .setting-card:hover:before{transform:translateX(100%)}.settings-card-icon{box-shadow:0 0 15px #36e6bd22;animation:sfnSettingsPulse 3s ease-in-out infinite}.settings-nav-item{transition:background .2s ease,border-color .2s ease,transform .2s ease}.settings-nav-item:hover{transform:translateX(3px);border-color:#54edc4!important;background:#12302d!important}@keyframes sfnSettingsScan{to{background-position:220px 0,80px 0}}@keyframes sfnSettingsPulse{50%{box-shadow:0 0 22px #36e6bd55}}@media(prefers-reduced-motion:reduce){.settings-hero:before,.settings-card-icon{animation:none}.settings-dashboard .setting-card,.settings-overview>div{transition:none}}body.reduce-motion .settings-hero:before,body.reduce-motion .settings-card-icon{animation:none!important}';
+  document.head.append(style);
+  const hideRegisteredPrompt = () => {
+    if (localStorage.getItem('sfn-private-call-registered') === '1') document.querySelector('.call-banner')?.remove();
+  };
+  window.addEventListener('sfn:render', hideRegisteredPrompt);
+  hideRegisteredPrompt();
+})();
+
 window.addEventListener('sfn:render', () => {
   if (window.sfnNative?.setTextZoom) window.sfnNative.setTextZoom(Number(state.textSize || 110));
 });
