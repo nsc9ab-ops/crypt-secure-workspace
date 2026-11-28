@@ -17,24 +17,42 @@
 
   function installFuturisticClock() {
     const actions = document.querySelector('.top-actions');
-    if (!actions || document.querySelector('#sfnFuturisticClock')) return;
+    const topbar = document.querySelector('.topbar');
+    if (!actions || !topbar || document.querySelector('#sfnFuturisticClock')) return;
     const clock = document.createElement('section');
     clock.id = 'sfnFuturisticClock';
     clock.className = 'sfn-clock-widget';
     clock.setAttribute('aria-label', 'Current time and date');
-    clock.innerHTML = '<div class="sfn-clock-face" aria-hidden="true"><div class="sfn-clock-ticks"></div><span class="sfn-clock-hand sfn-hour"></span><span class="sfn-clock-hand sfn-minute"></span><span class="sfn-clock-hand sfn-second"></span><i class="sfn-clock-pin"></i></div><div class="sfn-clock-readout"><strong class="sfn-clock-time">--:--:--</strong><span class="sfn-clock-date">Loading date</span></div>';
+    clock.innerHTML = '<div class="sfn-clock-face" aria-hidden="true"><div class="sfn-clock-ticks"></div><span class="sfn-clock-hand sfn-hour"></span><span class="sfn-clock-hand sfn-minute"></span><span class="sfn-clock-hand sfn-second"></span><i class="sfn-clock-pin"></i></div><div class="sfn-clock-readout"><strong class="sfn-clock-time">--:--:--</strong><span class="sfn-clock-date">Loading date</span><div class="sfn-clock-alarm-row"><input class="sfn-clock-alarm-input" type="time" aria-label="Alarm time"><button class="sfn-clock-alarm-button" type="button">SET ALARM</button></div><span class="sfn-clock-alarm-status">Alarm off</span></div>';
     const ticks = clock.querySelector('.sfn-clock-ticks');
     for (let index = 0; index < 12; index += 1) {
       const tick = document.createElement('b');
       tick.style.transform = `rotate(${index * 30}deg)`;
       ticks.appendChild(tick);
     }
-    actions.prepend(clock);
+    topbar.insertBefore(clock, actions);
     const hour = clock.querySelector('.sfn-hour');
     const minute = clock.querySelector('.sfn-minute');
     const second = clock.querySelector('.sfn-second');
     const timeReadout = clock.querySelector('.sfn-clock-time');
     const dateReadout = clock.querySelector('.sfn-clock-date');
+    const alarmInput = clock.querySelector('.sfn-clock-alarm-input');
+    const alarmButton = clock.querySelector('.sfn-clock-alarm-button');
+    const alarmStatus = clock.querySelector('.sfn-clock-alarm-status');
+    let alarm = localStorage.getItem('sfn-clock-alarm') || '';
+    let alarmTriggered = localStorage.getItem('sfn-clock-alarm-fired') || '';
+    alarmInput.value = alarm;
+    const syncAlarm = () => {
+      alarmStatus.textContent = alarm ? `Alarm ${alarm}` : 'Alarm off';
+      alarmButton.textContent = alarm ? 'CLEAR' : 'SET ALARM';
+      clock.classList.toggle('sfn-alarm-set', Boolean(alarm));
+    };
+    alarmButton.addEventListener('click', () => {
+      alarm = alarm ? '' : alarmInput.value;
+      if (alarm) localStorage.setItem('sfn-clock-alarm', alarm); else localStorage.removeItem('sfn-clock-alarm');
+      alarmTriggered = '';
+      syncAlarm();
+    });
     const update = () => {
       const now = new Date();
       const seconds = now.getSeconds() + now.getMilliseconds() / 1000;
@@ -45,14 +63,23 @@
       second.style.transform = `translateX(-50%) rotate(${seconds * 6}deg)`;
       timeReadout.textContent = now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
       dateReadout.textContent = now.toLocaleDateString([], {weekday: 'short', day: '2-digit', month: 'short', year: 'numeric'}).toUpperCase();
+      const minuteKey = `${now.toISOString().slice(0, 10)} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      if (alarm && minuteKey.endsWith(alarm) && alarmTriggered !== minuteKey) {
+        alarmTriggered = minuteKey;
+        clock.classList.add('sfn-alarm-ringing');
+        alarmStatus.textContent = `ALARM ${alarm} · NOW`;
+        if (navigator.vibrate) navigator.vibrate([250, 120, 250]);
+        window.setTimeout(() => clock.classList.remove('sfn-alarm-ringing'), 7000);
+      }
     };
     update();
+    syncAlarm();
     clock._sfnTimer = window.setInterval(update, 250);
   }
 
   installFuturisticClock();
   const clockStyle = document.createElement('style');
-  clockStyle.textContent = '.sfn-clock-widget{display:flex;align-items:center;gap:8px;margin-right:4px;padding:5px 9px 5px 5px;border:1px solid #168d61;border-radius:14px;background:linear-gradient(145deg,#061f18,#03110e);box-shadow:0 0 18px #00ff6230,inset 0 0 12px #00ff6212}.sfn-clock-face{position:relative;width:34px;height:34px;border:1px solid #50f0b4;border-radius:50%;background:radial-gradient(circle,#123e30 0 44%,#061712 45%);box-shadow:0 0 10px #21e69466}.sfn-clock-ticks,.sfn-clock-ticks b{position:absolute;inset:0}.sfn-clock-ticks b:after{content:"";position:absolute;left:50%;top:2px;width:1px;height:4px;background:#96ffda;transform:translateX(-50%);transform-origin:50% 15px}.sfn-clock-hand{position:absolute;left:50%;bottom:50%;width:1px;border-radius:2px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg)}.sfn-hour{height:9px;width:3px;background:#d6fff0}.sfn-minute{height:13px;width:2px;background:#6dffc2}.sfn-second{height:14px;background:#ffcf67;box-shadow:0 0 5px #ffcf67}.sfn-clock-pin{position:absolute;left:50%;top:50%;width:4px;height:4px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 5px #fff}.sfn-clock-readout{display:grid;gap:2px;min-width:84px}.sfn-clock-time{font:700 10px var(--mono);letter-spacing:.08em;color:#d4ffed;white-space:nowrap}.sfn-clock-date{font:8px var(--mono);letter-spacing:.06em;color:#6fe6b4;white-space:nowrap}.sfn-clock-widget:hover{border-color:#55ffc0;box-shadow:0 0 24px #00ff6255,inset 0 0 12px #00ff6220}@media(max-width:760px){.sfn-clock-widget{padding:4px;margin-right:0}.sfn-clock-readout{display:none}.sfn-clock-face{width:32px;height:32px}}';
+  clockStyle.textContent = '.topbar{flex-wrap:wrap}.sfn-clock-widget{flex:0 1 auto;display:flex;align-items:center;gap:14px;min-width:250px;margin:0 18px;padding:10px 14px;border:1px solid #168d61;border-radius:16px;background:linear-gradient(145deg,#061f18,#03110e);box-shadow:0 0 18px #00ff6230,inset 0 0 12px #00ff6212;overflow:hidden}.sfn-clock-face{position:relative;flex:0 0 64px;width:64px;height:64px;border:2px solid #50f0b4;border-radius:50%;background:radial-gradient(circle,#123e30 0 44%,#061712 45%);box-shadow:0 0 14px #21e69466}.sfn-clock-ticks,.sfn-clock-ticks b{position:absolute;inset:0}.sfn-clock-ticks b:after{content:"";position:absolute;left:50%;top:3px;width:2px;height:7px;background:#96ffda;transform:translateX(-50%);transform-origin:50% 29px}.sfn-clock-hand{position:absolute;left:50%;bottom:50%;width:2px;border-radius:2px;transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg)}.sfn-hour{height:17px;width:4px;background:#d6fff0}.sfn-minute{height:24px;width:3px;background:#6dffc2}.sfn-second{height:27px;background:#ffcf67;box-shadow:0 0 7px #ffcf67}.sfn-clock-pin{position:absolute;left:50%;top:50%;width:7px;height:7px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 0 7px #fff}.sfn-clock-readout{display:grid;gap:3px;min-width:150px}.sfn-clock-time{font:800 16px var(--mono);letter-spacing:.08em;color:#d4ffed;white-space:nowrap}.sfn-clock-date{font:9px var(--mono);letter-spacing:.06em;color:#6fe6b4;white-space:nowrap}.sfn-clock-alarm-row{display:flex;gap:5px;align-items:center;margin-top:3px}.sfn-clock-alarm-input{width:82px;padding:4px 5px;border:1px solid #236c50;border-radius:5px;background:#071914;color:#d4ffed;font:10px var(--mono)}.sfn-clock-alarm-button{padding:5px 7px;border:1px solid #2b8d69;border-radius:5px;background:#0c3427;color:#9affd4;font:700 8px var(--mono);cursor:pointer}.sfn-clock-alarm-status{font:8px var(--mono);color:#7fa89a;white-space:nowrap}.sfn-clock-widget.sfn-alarm-set .sfn-clock-alarm-status{color:#f8d477}.sfn-clock-widget.sfn-alarm-ringing{border-color:#ffd166;box-shadow:0 0 30px #ffd16699,inset 0 0 18px #ffd16633}.sfn-clock-widget:hover{border-color:#55ffc0;box-shadow:0 0 24px #00ff6255,inset 0 0 12px #00ff6220}@media(max-width:1050px){.sfn-clock-widget{min-width:220px;margin:0 10px;padding:8px 10px;gap:9px}.sfn-clock-face{flex-basis:54px;width:54px;height:54px}.sfn-clock-readout{min-width:122px}.sfn-clock-time{font-size:13px}}@media(max-width:760px){.topbar{height:auto;min-height:58px;padding-bottom:8px}.sfn-clock-widget{order:3;flex-basis:100%;min-width:0;margin:4px 0 0;padding:7px 9px;justify-content:center}.sfn-clock-face{flex-basis:48px;width:48px;height:48px}.sfn-clock-readout{min-width:150px}.sfn-clock-time{font-size:13px}}';
   document.head.appendChild(clockStyle);
 
   const rail = document.querySelector('#railnav');
