@@ -556,9 +556,9 @@ document.addEventListener('input', event => {
       if (lastDot !== null) addDot(lastDot);
       pointerId = null;
       const value = path.join('-');
-      if (path.length < 7) {
+      if (path.length < 4) {
         reset();
-        onInvalid('Connect at least 7 different dots.');
+        onInvalid('Connect at least 4 different dots.');
         return;
       }
       reset();
@@ -615,7 +615,7 @@ document.addEventListener('input', event => {
     if (!secureKey) return toast('Open the workspace with your password before setting a pattern.');
     const overlay = document.createElement('div');
     overlay.className = 'sfn-pattern-overlay';
-    overlay.innerHTML = '<section class="sfn-pattern-setup" role="dialog" aria-modal="true" aria-labelledby="sfnPatternTitle"><h2 id="sfnPatternTitle">Pattern unlock</h2><p>Draw a pattern through at least 7 dots, then draw it again to confirm. Your pattern is never saved; it only unlocks this device’s encrypted key. Keep your password for stronger protection and recovery.</p><svg class="sfn-pattern-pad" aria-label="Draw an unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite">Draw your new pattern.</div><div class="sfn-pattern-actions"><button type="button" data-pattern-cancel>Cancel</button></div></section>';
+    overlay.innerHTML = '<section class="sfn-pattern-setup" role="dialog" aria-modal="true" aria-labelledby="sfnPatternTitle"><h2 id="sfnPatternTitle">Pattern unlock</h2><p>Draw a pattern through at least 4 dots, then draw it again to confirm. Your pattern is never saved; it only unlocks this device’s encrypted key. Keep your password for stronger protection and recovery.</p><svg class="sfn-pattern-pad" aria-label="Draw an unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite">Draw your new pattern.</div><div class="sfn-pattern-actions"><button type="button" data-pattern-cancel>Cancel</button></div></section>';
     document.body.append(overlay);
     const svg = overlay.querySelector('svg');
     const status = overlay.querySelector('.sfn-pattern-error');
@@ -657,7 +657,7 @@ document.addEventListener('input', event => {
     const row = document.createElement('div');
     row.className = 'sfn-pattern-entry';
     row.hidden = true;
-    row.innerHTML = '<p>Draw your pattern through at least 7 dots.</p><svg class="sfn-pattern-pad" aria-label="Draw your unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite"></div><button type="button" class="access-link" data-pattern-close>Cancel pattern entry</button>';
+    row.innerHTML = '<p>Draw your pattern through at least 4 dots.</p><svg class="sfn-pattern-pad" aria-label="Draw your unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite"></div><button type="button" class="access-link" data-pattern-close>Cancel pattern entry</button>';
     button.onclick = () => {
       row.hidden = !row.hidden;
       if (!row.hidden && !row.dataset.ready) {
@@ -678,7 +678,7 @@ document.addEventListener('input', event => {
     if (state.view !== 'appearance') return;
     const grid = document.querySelector('#settingsGrid');
     if (!grid || grid.querySelector('[data-action="setup-pattern"]')) return;
-    grid.insertAdjacentHTML('beforeend', '<section class="setting-card"><div class="settings-card-head"><div><h3>Pattern unlock</h3><p>Draw a local pattern to reopen the encrypted workspace on this device.</p></div><span class="settings-card-icon">⌘</span></div><div class="settings-security-row"><span><strong>' + (record() ? 'Pattern enabled' : 'Not configured') + '</strong><small>Uses at least 7 dots. Keep your password for stronger protection and recovery.</small></span><button class="btn small" data-action="setup-pattern">' + (record() ? 'Replace pattern' : 'Set up pattern') + '</button></div></section>');
+    grid.insertAdjacentHTML('beforeend', '<section class="setting-card"><div class="settings-card-head"><div><h3>Pattern unlock</h3><p>Draw a local pattern to reopen the encrypted workspace on this device.</p></div><span class="settings-card-icon">⌘</span></div><div class="settings-security-row"><span><strong>' + (record() ? 'Pattern enabled' : 'Not configured') + '</strong><small>Uses at least 4 dots. Keep your password for stronger protection and recovery.</small></span><button class="btn small" data-action="setup-pattern">' + (record() ? 'Replace pattern' : 'Set up pattern') + '</button></div></section>');
   }
 
   patternStyle();
