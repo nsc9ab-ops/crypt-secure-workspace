@@ -72,13 +72,10 @@
     state.panel.setAttribute('aria-hidden', 'true');
     state.panel.innerHTML = '<div class="sfn-kb-shell"></div>';
     document.body.append(state.panel);
-    state.panel.addEventListener('pointerdown', event => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      event.preventDefault();
-      onKey(event);
-    });
     state.panel.addEventListener('click', event => {
-      if (event.detail === 0) onKey(event);
+      event.preventDefault();
+      event.stopPropagation();
+      onKey(event);
     });
   }
 
@@ -169,7 +166,7 @@
     state.panel.querySelector('.sfn-kb-shell').innerHTML =
       '<div class="sfn-kb-entry"><span class="sfn-kb-search" aria-hidden="true">⌕</span><span class="sfn-kb-value">'+esc(previewValue())+'</span><span class="sfn-kb-entry-status">●</span></div>'+
       '<div class="sfn-kb-toolbar"><span class="sfn-kb-mark" aria-hidden="true">SF</span><span class="sfn-kb-caption">'+title()+'</span><span class="sfn-kb-spacer"></span>'+(state.mode === 'password' ? '<button class="sfn-kb-tool" type="button" data-action="visibility" aria-label="Show or hide password">◉</button>' : '')+'<span class="sfn-kb-lock" aria-label="Local keyboard">◆</span><button class="sfn-kb-tool sfn-kb-close" type="button" data-action="close" aria-label="Close keyboard">⌄</button></div>'+
-      '<div class="sfn-kb-rows">'+rows.map((row,index)=>'<div class="sfn-kb-row sfn-kb-row-'+index+'">'+row.map(item=>'<button type="button" class="sfn-kb-key '+(item.kind||'')+'" data-action="'+esc(item.action)+'" data-value="'+esc(item.value)+'" aria-label="'+esc(item.action||item.value||item.label)+'">'+esc(item.label)+'</button>').join('')+'</div>').join('')+'</div>'+
+      '<div class="sfn-kb-rows">'+rows.map((row,index)=>'<div class="sfn-kb-row sfn-kb-row-'+index+'">'+row.map(item=>'<button type="button" class="sfn-kb-key '+(item.kind||'')+'" data-action="'+esc(item.action)+'" data-value="'+esc(item.value)+'" aria-label="'+esc(item.action||item.value||item.label)+'"'+(item.action==='shift'?' aria-pressed="'+String(state.shifted)+'"':'')+'>'+esc(item.label)+'</button>').join('')+'</div>').join('')+'</div>'+
       '<div class="sfn-kb-foot"><span>ON-DEVICE INPUT</span><span>·</span><span>ENGLISH (UK)</span></div>';
     state.panel.classList.add('open');
     state.panel.setAttribute('aria-hidden', 'false');
