@@ -3117,3 +3117,12 @@
             Controls.init();
             Sim.init();
         };
+
+        // Restrict orientation locking to this simulator page. Returning to the
+        // Scott.F.N workspace releases the lock so the rest of the app rotates.
+        window.addEventListener('pagehide', () => {
+            try { screen.orientation?.unlock?.(); } catch (error) {}
+            if (document.fullscreenElement && document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            }
+        });
