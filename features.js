@@ -380,6 +380,26 @@
   document.head.append(arcadeStyle);
 })();
 
+/* Make the platform face unlock option clear in the security controls. */
+(() => {
+  const labelFaceUnlock = () => {
+    document.querySelectorAll('[data-action="setup-biometric"]').forEach(button => {
+      if (!button.dataset.faceLabelled) {
+        button.dataset.faceLabelled = '1';
+        button.textContent = button.textContent.toLowerCase().includes('again') ? 'Set up face unlock again' : 'Set up face unlock';
+      }
+    });
+    document.querySelectorAll('[data-action="setup-native-biometric"]').forEach(button => {
+      if (!button.dataset.faceLabelled) {
+        button.dataset.faceLabelled = '1';
+        button.textContent = 'Set up face / fingerprint unlock';
+      }
+    });
+  };
+  window.addEventListener('sfn:render', labelFaceUnlock);
+  labelFaceUnlock();
+})();
+
 /* Keep the installed web app current and surface updates through the bell. */
 (() => {
   if (!('serviceWorker' in navigator)) return;
