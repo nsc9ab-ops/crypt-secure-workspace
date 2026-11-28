@@ -94,6 +94,19 @@
     }
   }
 
+  function addHomeGames() {
+    const panel = document.querySelector('#panel');
+    if (state.view !== 'home' || !panel || panel.querySelector('.home-games')) return;
+    const section = document.createElement('section');
+    section.className = 'home-games';
+    section.innerHTML = '<div class="side-title">Games</div><div class="quickgrid">' +
+      '<a class="quick" data-game-link="kenya-highway-pro" href="./games/kenya-highway-pro.html"><span class="quickglyph">🚛</span><strong>Kenya Highway PRO</strong><small>Realistic truck driving and tilt controls</small></a>' +
+      '<a class="quick" data-game-link="nexus-v" href="./games/nexus-v-quantum-party-matrix.html"><span class="quickglyph">⚛</span><strong>NEXUS-V Party Matrix</strong><small>Quantum word and party game</small></a>' +
+      '<button class="quick" data-feature="arcade"><span class="quickglyph">✦</span><strong>Cyber Arcade</strong><small>Cyber Serpent and Void Interceptor</small></button>' +
+      '</div>';
+    panel.appendChild(section);
+  }
+
   function addWorkspaceTools() {
     const panel = document.querySelector('#panel');
     if (state.view !== 'lifekeep' || !panel || panel.querySelector('.workspace-tools')) return;
@@ -119,6 +132,7 @@
     if (state.view === 'ringtones') document.querySelector('#panel').innerHTML = ringtoneView();
     if (state.view === 'arcade') document.querySelector('#panel').innerHTML = arcadeView();
     if (state.view === 'home') addHomeShortcut();
+    addHomeGames();
     addWorkspaceTools();
     document.querySelectorAll('.home-quickgrid [data-game-link]').forEach(item => item.remove());
     installArcadeBottomNav();
