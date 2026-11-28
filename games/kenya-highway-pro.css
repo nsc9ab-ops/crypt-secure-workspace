@@ -57,16 +57,22 @@
         #traffic-status-pill[data-state="RED"] { border-color: rgba(251, 113, 133, .8); color: #fecdd3; }
 
         /* Larger steering wheel for easier touch control. */
-        #ui-wheel-container { width: 148px; height: 148px; }
-        @media (min-width: 640px) { #ui-wheel-container { width: 164px; height: 164px; } }
+        #ui-wheel-container { width: 172px; height: 172px; }
+        @media (min-width: 640px) { #ui-wheel-container { width: 188px; height: 188px; } }
+        #pedal-brake { width: 66px !important; height: 92px !important; }
+        #pedal-gas { width: 76px !important; height: 124px !important; }
+        #btn-steer-left,
+        #btn-steer-right { width: 82px !important; height: 72px !important; font-size: 30px !important; }
 
         /* Keep the driving controls clear on short landscape phone screens. */
         @media screen and (orientation: landscape) and (max-height: 520px) {
             header { top: 4px !important; }
             footer { bottom: 4px !important; }
-            #ui-wheel-container { width: 124px !important; height: 124px !important; }
-            #pedal-brake { height: 68px !important; }
-            #pedal-gas { height: 88px !important; }
+            #ui-wheel-container { width: 142px !important; height: 142px !important; }
+            #pedal-brake { width: 60px !important; height: 78px !important; }
+            #pedal-gas { width: 70px !important; height: 102px !important; }
+            #btn-steer-left,
+            #btn-steer-right { width: 72px !important; height: 64px !important; }
             footer .hud-panel { padding-top: 5px !important; padding-bottom: 5px !important; }
             #traffic-status-pill { top: 3.45rem !important; }
         }
