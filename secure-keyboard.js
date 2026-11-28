@@ -264,9 +264,25 @@
     if (state.input && event.target !== state.input && !state.panel?.contains(event.target)) close();
   });
   document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.input) close(); });
-  new MutationObserver(() => {
-    markFields();
-    if (state.input && !state.input.isConnected) close();
+  let markFrame = 0;
+  const scheduleMarkFields = () => {
+    if (markFrame) return;
+    markFrame = requestAnimationFrame(() => {
+      markFrame = 0;
+      markFields();
+    });
+  };
+  new MutationObserver(records => {
+    let needsScan = false;
+    for (const record of records) {
+      if (state.panel && (record.target === state.panel || state.panel.contains(record.target))) continue;
+      needsScan = true;
+      if (state.input && !state.input.isConnected) {
+        close();
+        break;
+      }
+    }
+    if (needsScan) scheduleMarkFields();
   }).observe(document.body, { childList: true, subtree: true });
   markFields();
 })();

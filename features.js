@@ -380,6 +380,35 @@
   document.head.append(arcadeStyle);
 })();
 
+/* Keep the installed web app current and surface updates through the bell. */
+(() => {
+  if (!('serviceWorker' in navigator)) return;
+  const updateStyle = document.createElement('style');
+  updateStyle.textContent = '.notification-icon.has-update{color:#7dffc2!important;border-color:#65f2c1!important;box-shadow:0 0 0 3px #65f2c133,0 0 18px #65f2c166!important}.notification-icon.has-update::after{content:"";position:absolute;right:3px;top:3px;width:8px;height:8px;border-radius:50%;background:#ffcf67;box-shadow:0 0 8px #ffcf67}';
+  document.head.append(updateStyle);
+  const bell = () => document.querySelector('.notification-icon');
+  const announce = message => {
+    bell()?.classList.add('has-update');
+    if (typeof window.toast === 'function') window.toast(message);
+  };
+  const check = registration => registration?.update?.().catch(() => {});
+  const watch = registration => {
+    if (!registration) return;
+    registration.addEventListener('updatefound', () => {
+      const worker = registration.installing;
+      if (!worker) return;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) announce('App update ready. Refreshing securely…');
+      });
+    });
+    check(registration);
+    window.setInterval(() => check(registration), 15 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(registration); }, { passive: true });
+    window.addEventListener('online', () => check(registration), { passive: true });
+  };
+  navigator.serviceWorker.ready.then(watch).catch(() => {});
+})();
+
 window.addEventListener('sfn:render', () => {
   if (window.sfnNative?.setTextZoom) window.sfnNative.setTextZoom(Number(state.textSize || 110));
 });
