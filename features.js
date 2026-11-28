@@ -837,3 +837,9 @@ document.addEventListener('input', event => {
     if (event.target.closest('[data-action="setup-pattern"]')) setup();
   });
 })();
+
+// Load the supplied Scott Nexus settings experience as an integrated view.
+const nexusSettingsScript = document.createElement('script');
+nexusSettingsScript.src = './settings-center.js';
+nexusSettingsScript.onload = () => { if (state.view === 'appearance') render(); };
+document.body.append(nexusSettingsScript);

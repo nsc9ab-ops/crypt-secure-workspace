@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sfn-shell-v56';
+const CACHE_NAME = 'sfn-shell-v58';
 const APP_FILES = [
   './',
   './index.html',
@@ -7,6 +7,7 @@ const APP_FILES = [
   './members.js',
   './secure-keyboard.js',
   './features.js',
+  './settings-center.js',
   './games/cyber-arcade-twin-system.html',
   './games/game-preferences.js',
   './games/kenya-highway-pro.html',
