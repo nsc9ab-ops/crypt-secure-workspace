@@ -72,10 +72,16 @@
     state.panel.setAttribute('aria-hidden', 'true');
     state.panel.innerHTML = '<div class="sfn-kb-shell"></div>';
     document.body.append(state.panel);
-    state.panel.addEventListener('click', event => {
+    state.panel.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
-      event.stopPropagation();
       onKey(event);
+    });
+    state.panel.addEventListener('click', event => {
+      if (event.detail === 0) {
+        event.preventDefault();
+        onKey(event);
+      }
     });
   }
 
