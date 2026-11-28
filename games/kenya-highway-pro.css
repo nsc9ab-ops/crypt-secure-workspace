@@ -109,3 +109,57 @@
             border-radius: 0 !important;
             clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
         }
+
+        /* Permanent widescreen presentation. Desktop fills the viewport; portrait
+           phones and tablets pause the game until the device is rotated. */
+        :root {
+            color-scheme: dark;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+        }
+        html, body {
+            min-width: 100%;
+            min-height: 100%;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+        #game-canvas {
+            width: 100vw;
+            height: 100dvh;
+            min-height: 100svh;
+        }
+        #orientation-lock {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: radial-gradient(circle at 50% 35%, rgba(8, 51, 68, .96), rgba(2, 6, 23, .99) 72%);
+            text-align: center;
+        }
+        .orientation-lock-card {
+            width: min(90vw, 440px);
+            padding: 30px 24px 26px;
+            border: 1px solid rgba(103, 232, 249, .55);
+            background: linear-gradient(145deg, rgba(13, 25, 39, .98), rgba(5, 10, 18, .98));
+            box-shadow: 0 18px 70px rgba(0, 0, 0, .65), 0 0 34px rgba(34, 211, 238, .14);
+            clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+        }
+        .orientation-lock-icon { color: #67e8f9; font-size: 52px; line-height: 1; margin-bottom: 12px; animation: orientation-pulse 1.8s ease-in-out infinite; }
+        .orientation-lock-kicker { color: #67e8f9; font: 700 11px/1.2 'JetBrains Mono', monospace; letter-spacing: .18em; }
+        .orientation-lock-card h1 { margin: 10px 0 8px; font: 800 clamp(22px, 5vw, 32px)/1.1 'Orbitron', sans-serif; }
+        .orientation-lock-card p { margin: 0 auto 20px; max-width: 32ch; color: #cbd5e1; font: 500 15px/1.45 'Rajdhani', sans-serif; }
+        .orientation-lock-card button { padding: 12px 18px; color: #03131a; background: #67e8f9; border: 0; font: 800 12px/1 'Orbitron', sans-serif; letter-spacing: .08em; cursor: pointer; }
+        @keyframes orientation-pulse { 50% { transform: rotate(90deg) scale(1.08); } }
+        @media screen and (orientation: portrait) and (max-width: 1024px) {
+            #orientation-lock { display: flex; }
+            #game-canvas, body > :not(#orientation-lock) { visibility: hidden; }
+            #orientation-lock, #orientation-lock * { visibility: visible; }
+        }
+        @media screen and (orientation: landscape), screen and (min-width: 1025px) {
+            #orientation-lock { display: none; }
+        }

@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, orientation=landscape">
     <title>KENYA HIGHWAY PRO // Realistic 3D Truck & Car Simulator</title>
     <!-- Tailwind CSS -->
             <script>
@@ -158,6 +158,17 @@ Check your Browserslist config to be sure that your targets are set up correctly
     <link rel="stylesheet" href="./kenya-highway-pro.css">
 </head>
 <body>
+
+    <!-- Mobile and tablet portrait guard: the simulator is intentionally widescreen. -->
+    <div id="orientation-lock" role="status" aria-live="polite">
+        <div class="orientation-lock-card">
+            <div class="orientation-lock-icon" aria-hidden="true">↻</div>
+            <div class="orientation-lock-kicker">KENYA HIGHWAY PRO</div>
+            <h1>Rotate your device</h1>
+            <p>Landscape mode is required for the full highway view and driving controls.</p>
+            <button type="button" onclick="Sim.requestLandscapeFullscreen()">ENTER LANDSCAPE</button>
+        </div>
+    </div>
 
     <!-- 3D Photorealistic WebGL Viewport -->
     <canvas id="game-canvas"></canvas>
