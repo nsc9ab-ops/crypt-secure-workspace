@@ -72,18 +72,26 @@
     state.panel.setAttribute('aria-hidden', 'true');
     state.panel.innerHTML = '<div class="sfn-kb-shell"></div>';
     document.body.append(state.panel);
-    state.panel.addEventListener('pointerdown', event => event.preventDefault());
-    state.panel.addEventListener('click', onKey);
+    state.panel.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      event.preventDefault();
+      onKey(event);
+    });
+    state.panel.addEventListener('click', event => {
+      if (event.detail === 0) onKey(event);
+    });
   }
 
-  function close() {
+  function close(skipAutoUnlock = false) {
     if (!state.input) return;
     const input = state.input;
+    if (skipAutoUnlock && input.id === 'accessPass') input.dataset.sfnSkipAutoUnlock = '1';
     restore();
     state.input = null;
     state.panel?.classList.remove('open');
     state.panel?.setAttribute('aria-hidden', 'true');
     input.blur();
+    if (input.dataset.sfnSkipAutoUnlock === '1') queueMicrotask(() => delete input.dataset.sfnSkipAutoUnlock);
   }
 
   function key(label, value = label, action = '', kind = '') {
@@ -190,7 +198,6 @@
   }
   function notify() {
     state.input.dispatchEvent(new Event('input', { bubbles: true }));
-    state.input.dispatchEvent(new Event('change', { bubbles: true }));
     const preview = state.panel?.querySelector('.sfn-kb-value');
     if (preview) preview.textContent = previewValue();
   }
@@ -199,7 +206,7 @@
     if (!button || !state.input) return;
     const action = button.dataset.action;
     if (action === 'close') return close();
-    if (action === 'done') { state.input.form?.requestSubmit?.(); close(); return; }
+    if (action === 'done') { const form = state.input.form; close(true); form?.requestSubmit?.(); return; }
     if (action === 'clear') { state.input.value = ''; try { state.input.setSelectionRange(0,0); } catch {} return notify(); }
     if (action === 'backspace') return erase();
     if (action === 'shift') { state.shifted = !state.shifted; return render(); }
@@ -215,7 +222,7 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .sfn-keyboard{position:fixed;z-index:9999;left:50%;bottom:0;width:100%;max-width:680px;padding:8px 12px calc(9px + env(safe-area-inset-bottom));box-sizing:border-box;background:#191a1d;color:#f5f5f7;box-shadow:0 -16px 48px #0009;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,18px);transition:opacity .18s ease,transform .18s ease,visibility .18s ease;font-family:Roboto,"Arial",sans-serif;touch-action:manipulation;user-select:none}
+    .sfn-keyboard{position:fixed;z-index:9999;left:50%;bottom:0;width:100%;max-width:680px;padding:8px 12px calc(9px + env(safe-area-inset-bottom));box-sizing:border-box;contain:layout paint;background:#191a1d;color:#f5f5f7;box-shadow:0 -16px 48px #0009;opacity:0;visibility:hidden;pointer-events:none;transform:translate(-50%,18px);transition:opacity .1s ease,transform .1s ease,visibility .1s ease;font-family:Roboto,"Arial",sans-serif;touch-action:manipulation;user-select:none}
     .sfn-keyboard.open{opacity:1;visibility:visible;pointer-events:auto;transform:translate(-50%,0)}
     .sfn-kb-entry{height:48px;display:flex;align-items:center;gap:12px;padding:0 15px;margin:0 0 8px;border:1px solid #37383b;border-radius:28px;background:#202124;color:#c4c6cc;font-size:15px;box-sizing:border-box}
     .sfn-kb-search{font-size:24px;color:#d9dbe0;line-height:1}.sfn-kb-value{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sfn-kb-entry-status{font-size:9px;color:#77d957;text-shadow:0 0 8px #72e554}
@@ -246,8 +253,13 @@
   document.head.append(style);
   document.addEventListener('pointerdown', event => {
     if (!state.input || state.panel?.contains(event.target) || event.target === state.input) return;
-    close();
+    close(Boolean(event.target.closest?.('#accessForm button[type="submit"], #accessForm input[type="submit"]')));
   });
+  document.addEventListener('change', event => {
+    if (event.target?.dataset?.sfnSkipAutoUnlock !== '1') return;
+    delete event.target.dataset.sfnSkipAutoUnlock;
+    event.stopImmediatePropagation();
+  }, true);
   document.addEventListener('focusin', event => {
     if (state.input && event.target !== state.input && !state.panel?.contains(event.target)) close();
   });

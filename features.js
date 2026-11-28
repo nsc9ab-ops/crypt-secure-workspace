@@ -290,4 +290,260 @@ document.addEventListener('input', event => {
   window.addEventListener('sfn:render',()=>{gate();if(state.view==='appearance'&&!document.querySelector('[data-action="setup-pin"]'))document.querySelector('#settingsGrid')?.insertAdjacentHTML('beforeend','<div class="setting-card"><h3>Quick PIN</h3><p>Use a short local PIN to reopen this encrypted workspace.</p><div class="settingline"><span>'+(rec()?'PIN enabled':'Not configured')+'</span><button class="btn small" data-action="setup-pin">'+(rec()?'Replace PIN':'Set up PIN')+'</button></div></div>')});
   document.addEventListener('click',event=>{if(event.target.closest('[data-action="setup-pin"]'))setup().catch(error=>toast(error.message||'Could not set up the PIN.'))});
   const style=document.createElement('style');style.textContent='.pin-entry{display:grid;gap:8px;margin-top:10px}.pin-entry input{width:100%;padding:14px;border:1px solid #65edff88;border-radius:12px;background:#071823;color:#fff;font-size:20px;letter-spacing:.35em;text-align:center}';document.head.append(style);
+  gate();
+})();
+
+/* Pattern unlock wraps the existing local vault key and never stores the drawn pattern. */
+(() => {
+  const KEY = 'sfn-local-pattern-v1';
+  const DOTS = Array.from({ length: 9 }, (_, index) => ({
+    id: index,
+    x: 50 + (index % 3) * 100,
+    y: 50 + Math.floor(index / 3) * 100
+  }));
+  const NS = 'http://www.w3.org/2000/svg';
+  const encoder = new TextEncoder();
+  const bytes = value => Uint8Array.from(atob(value), char => char.charCodeAt(0));
+  const toBase64 = value => btoa(String.fromCharCode(...new Uint8Array(value)));
+  const record = () => {
+    try { return JSON.parse(localStorage.getItem(KEY) || 'null'); }
+    catch { return null; }
+  };
+
+  async function derivePatternKey(pattern, salt) {
+    const material = await crypto.subtle.importKey(
+      'raw', encoder.encode(`Scott.F.N pattern unlock v1:${pattern}`), 'PBKDF2', false, ['deriveKey']
+    );
+    return crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt, iterations: 240000, hash: 'SHA-256' },
+      material,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
+  }
+
+  function setPath(svg, ids, tail) {
+    const line = svg.querySelector('.sfn-pattern-line');
+    const coords = ids.map(id => {
+      const dot = DOTS[id];
+      return `${dot.x},${dot.y}`;
+    });
+    if (tail && coords.length) coords.push(`${tail.x},${tail.y}`);
+    line.setAttribute('points', coords.join(' '));
+  }
+
+  function drawSurface(svg, onComplete, onInvalid) {
+    svg.setAttribute('viewBox', '0 0 300 300');
+    svg.innerHTML = '<polyline class="sfn-pattern-line" points="" />' + DOTS.map(dot =>
+      `<g class="sfn-pattern-node" data-dot="${dot.id}"><circle class="sfn-pattern-hit" cx="${dot.x}" cy="${dot.y}" r="34"/><circle class="sfn-pattern-ring" cx="${dot.x}" cy="${dot.y}" r="14"/><circle class="sfn-pattern-core" cx="${dot.x}" cy="${dot.y}" r="4"/></g>`
+    ).join('');
+
+    const path = [];
+    let pointerId = null;
+    let previous = null;
+    const position = event => {
+      const rect = svg.getBoundingClientRect();
+      return { x: (event.clientX - rect.left) * 300 / rect.width, y: (event.clientY - rect.top) * 300 / rect.height };
+    };
+    const addDot = id => {
+      if (path.includes(id)) return;
+      path.push(id);
+      svg.querySelector(`[data-dot="${id}"]`)?.classList.add('selected');
+      setPath(svg, path);
+    };
+    const nearestDot = (point, limit = 38) => {
+      let nearest = null;
+      let distance = limit;
+      for (const dot of DOTS) {
+        const next = Math.hypot(point.x - dot.x, point.y - dot.y);
+        if (next < distance) { nearest = dot.id; distance = next; }
+      }
+      return nearest;
+    };
+    const crossDots = (from, to) => {
+      const dx = to.x - from.x, dy = to.y - from.y;
+      const lengthSquared = dx * dx + dy * dy;
+      if (!lengthSquared) return;
+      DOTS.map(dot => {
+        const t = Math.max(0, Math.min(1, ((dot.x - from.x) * dx + (dot.y - from.y) * dy) / lengthSquared));
+        const distance = Math.hypot(dot.x - (from.x + t * dx), dot.y - (from.y + t * dy));
+        return { id: dot.id, t, distance };
+      }).filter(item => !path.includes(item.id) && item.t > 0 && item.t < 1 && item.distance < 19)
+        .sort((a, b) => a.t - b.t)
+        .forEach(item => addDot(item.id));
+    };
+    const reset = () => {
+      path.length = 0;
+      previous = null;
+      svg.querySelectorAll('.sfn-pattern-node.selected').forEach(node => node.classList.remove('selected'));
+      setPath(svg, []);
+    };
+
+    svg.onpointerdown = event => {
+      if (pointerId !== null || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      event.preventDefault();
+      pointerId = event.pointerId;
+      svg.setPointerCapture?.(pointerId);
+      reset();
+      previous = position(event);
+      const start = nearestDot(previous);
+      if (start !== null) addDot(start);
+    };
+    svg.onpointermove = event => {
+      if (pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const next = position(event);
+      if (previous) crossDots(previous, next);
+      setPath(svg, path, next);
+      previous = next;
+    };
+    svg.onpointerup = event => {
+      if (pointerId !== event.pointerId) return;
+      event.preventDefault();
+      const end = position(event);
+      if (previous) crossDots(previous, end);
+      const lastDot = nearestDot(end);
+      if (lastDot !== null) addDot(lastDot);
+      pointerId = null;
+      const value = path.join('-');
+      if (path.length < 7) {
+        reset();
+        onInvalid('Connect at least 7 different dots.');
+        return;
+      }
+      reset();
+      onComplete(value);
+    };
+    svg.onpointercancel = () => { pointerId = null; reset(); };
+  }
+
+  function patternStyle() {
+    const style = document.createElement('style');
+    style.textContent = `
+      .sfn-pattern-entry{margin-top:12px;padding:13px;border:1px solid #65edff55;border-radius:18px;background:linear-gradient(145deg,#071923,#06131a);text-align:center}
+      .sfn-pattern-entry p,.sfn-pattern-setup p{margin:0 0 10px;color:#a9c7d1;font-size:12px;line-height:1.5}
+      .sfn-pattern-pad{display:block;width:min(100%,280px);height:auto;margin:0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
+      .sfn-pattern-line{fill:none;stroke:#58f1ff;stroke-width:7;stroke-linecap:round;stroke-linejoin:round;opacity:.9;filter:drop-shadow(0 0 7px #39ddeb)}
+      .sfn-pattern-hit{fill:transparent}.sfn-pattern-ring{fill:#102c3b;stroke:#6b8b9a;stroke-width:3;transition:fill .08s,stroke .08s}
+      .sfn-pattern-core{fill:#b8eaf0;pointer-events:none}.sfn-pattern-node.selected .sfn-pattern-ring{fill:#087d91;stroke:#8bfbff;stroke-width:5;filter:drop-shadow(0 0 8px #41efff)}
+      .sfn-pattern-node.selected .sfn-pattern-core{fill:#fff}
+      .sfn-pattern-error{min-height:20px;margin:7px 0;color:#ff9aab;font-size:12px}
+      .sfn-pattern-overlay{position:fixed;inset:0;z-index:10020;display:grid;place-items:center;overflow:auto;padding:16px;background:#02080de8;backdrop-filter:blur(12px)}
+      .sfn-pattern-setup{width:min(100%,390px);margin:auto;padding:21px;border:1px solid #54ecf577;border-radius:24px;background:linear-gradient(145deg,#102431,#07131c);box-shadow:0 22px 80px #000b,0 0 35px #19ced022;color:#effbff;text-align:center}
+      .sfn-pattern-setup h2{margin:0 0 8px;font-size:21px}.sfn-pattern-setup .sfn-pattern-pad{width:min(100%,300px)}
+      .sfn-pattern-actions{display:flex;justify-content:center;gap:9px;margin-top:10px}
+      .sfn-pattern-actions button{min-height:43px;padding:9px 15px;border:1px solid #54ecf577;border-radius:12px;background:#0b2935;color:#e9fcff;font-size:13px;font-weight:600;font-family:inherit;touch-action:manipulation}
+      @media(max-height:560px){.sfn-pattern-overlay{padding:8px}.sfn-pattern-setup{padding:13px}.sfn-pattern-setup .sfn-pattern-pad{width:min(36vh,220px)}}
+      @media(prefers-reduced-motion:reduce){.sfn-pattern-ring{transition:none}}
+    `;
+    document.head.append(style);
+  }
+
+  async function savePattern(pattern) {
+    if (!secureKey) throw Error('Unlock the workspace with your password before setting a pattern.');
+    const salt = crypto.getRandomValues(new Uint8Array(24));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const wrappingKey = await derivePatternKey(pattern, salt);
+    const rawKey = await crypto.subtle.exportKey('raw', secureKey);
+    const wrapped = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, rawKey);
+    localStorage.setItem(KEY, JSON.stringify({ salt: toBase64(salt), iv: toBase64(iv), wrapped: toBase64(wrapped), dots: 7 }));
+  }
+
+  async function unlockPattern(pattern) {
+    const saved = record();
+    if (!saved) throw Error('No unlock pattern is configured on this device.');
+    try {
+      const wrappingKey = await derivePatternKey(pattern, bytes(saved.salt));
+      const rawKey = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes(saved.iv) }, wrappingKey, bytes(saved.wrapped));
+      await openVaultWithRawKey(toBase64(rawKey));
+    } catch {
+      throw Error('That pattern did not unlock this workspace.');
+    }
+  }
+
+  function setup() {
+    if (!secureKey) return toast('Open the workspace with your password before setting a pattern.');
+    const overlay = document.createElement('div');
+    overlay.className = 'sfn-pattern-overlay';
+    overlay.innerHTML = '<section class="sfn-pattern-setup" role="dialog" aria-modal="true" aria-labelledby="sfnPatternTitle"><h2 id="sfnPatternTitle">Pattern unlock</h2><p>Draw a pattern through at least 7 dots, then draw it again to confirm. Your pattern is never saved; it only unlocks this device’s encrypted key. Keep your password for stronger protection and recovery.</p><svg class="sfn-pattern-pad" aria-label="Draw an unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite">Draw your new pattern.</div><div class="sfn-pattern-actions"><button type="button" data-pattern-cancel>Cancel</button></div></section>';
+    document.body.append(overlay);
+    const svg = overlay.querySelector('svg');
+    const status = overlay.querySelector('.sfn-pattern-error');
+    let firstPattern = null;
+    drawSurface(svg, async pattern => {
+      if (!firstPattern) {
+        firstPattern = pattern;
+        status.textContent = 'Now draw the same pattern again to confirm.';
+        return;
+      }
+      if (pattern !== firstPattern) {
+        firstPattern = null;
+        status.textContent = 'Patterns did not match. Draw a new pattern.';
+        return;
+      }
+      status.textContent = 'Securing your pattern…';
+      try {
+        await savePattern(pattern);
+        overlay.remove();
+        toast('Pattern unlock is ready on this device.');
+        render();
+      } catch (error) {
+        status.textContent = error.message || 'Could not set up pattern unlock.';
+      }
+    }, message => { status.textContent = message; });
+    overlay.querySelector('[data-pattern-cancel]').onclick = () => overlay.remove();
+    overlay.addEventListener('click', event => { if (event.target === overlay) overlay.remove(); });
+  }
+
+  function addGateOption() {
+    const gate = document.querySelector('#accessGate');
+    if (!gate || !record() || gate.dataset.patternOption === '1') return;
+    gate.dataset.patternOption = '1';
+    const button = document.createElement('button');
+    button.className = 'btn';
+    button.type = 'button';
+    button.textContent = 'Draw unlock pattern';
+    button.style.marginTop = '10px';
+    const row = document.createElement('div');
+    row.className = 'sfn-pattern-entry';
+    row.hidden = true;
+    row.innerHTML = '<p>Draw your pattern through at least 7 dots.</p><svg class="sfn-pattern-pad" aria-label="Draw your unlock pattern"></svg><div class="sfn-pattern-error" role="status" aria-live="polite"></div><button type="button" class="access-link" data-pattern-close>Cancel pattern entry</button>';
+    button.onclick = () => {
+      row.hidden = !row.hidden;
+      if (!row.hidden && !row.dataset.ready) {
+        row.dataset.ready = '1';
+        const status = row.querySelector('.sfn-pattern-error');
+        drawSurface(row.querySelector('svg'), async pattern => {
+          status.textContent = 'Checking pattern…';
+          try { await unlockPattern(pattern); }
+          catch (error) { status.textContent = error.message || 'Pattern unlock failed.'; }
+        }, message => { status.textContent = message; });
+      }
+    };
+    row.querySelector('[data-pattern-close]').onclick = () => { row.hidden = true; };
+    gate.querySelector('#accessForm')?.after(button, row);
+  }
+
+  function updateSettings() {
+    if (state.view !== 'appearance') return;
+    const grid = document.querySelector('#settingsGrid');
+    if (!grid || grid.querySelector('[data-action="setup-pattern"]')) return;
+    grid.insertAdjacentHTML('beforeend', '<section class="setting-card"><div class="settings-card-head"><div><h3>Pattern unlock</h3><p>Draw a local pattern to reopen the encrypted workspace on this device.</p></div><span class="settings-card-icon">⌘</span></div><div class="settings-security-row"><span><strong>' + (record() ? 'Pattern enabled' : 'Not configured') + '</strong><small>Uses at least 7 dots. Keep your password for stronger protection and recovery.</small></span><button class="btn small" data-action="setup-pattern">' + (record() ? 'Replace pattern' : 'Set up pattern') + '</button></div></section>');
+  }
+
+  patternStyle();
+  addGateOption();
+  if (typeof window.showAccessGate === 'function') {
+    const originalShowAccessGate = window.showAccessGate;
+    window.showAccessGate = function (...args) {
+      const result = originalShowAccessGate.apply(this, args);
+      addGateOption();
+      return result;
+    };
+  }
+  window.addEventListener('sfn:render', () => { addGateOption(); updateSettings(); });
+  document.addEventListener('click', event => {
+    if (event.target.closest('[data-action="setup-pattern"]')) setup();
+  });
 })();
