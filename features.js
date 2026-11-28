@@ -10,12 +10,10 @@
   views.arcade = 'Cyber Arcade';
 
   const nav = document.querySelector('#sfnBottomNav');
-  const pdfNav = nav?.querySelector('[data-page="messages"]');
-  if (pdfNav) {
-    pdfNav.dataset.page = 'pdfscan';
-    pdfNav.setAttribute('aria-label', 'PDF Scan');
-    pdfNav.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"></path><path d="M14 3v5h5M9 12h7M9 16h7"></path></svg><span>PDF Scan</span>';
-  }
+  // Keep the bottom bar focused on core navigation. Tools and games live in
+  // the authenticated LIFEKEEP workspace instead of taking permanent slots.
+  nav?.querySelector('[data-page="inventory"]')?.remove();
+  nav?.querySelector('[data-page="messages"]')?.remove();
 
   const rail = document.querySelector('#railnav');
   if (rail && !rail.querySelector('[data-view="ringtones"]')) {
@@ -56,6 +54,24 @@
     }
   }
 
+  function addWorkspaceTools() {
+    const panel = document.querySelector('#panel');
+    if (state.view !== 'lifekeep' || !panel || panel.querySelector('.workspace-tools')) return;
+    panel.querySelectorAll('.quick').forEach(item => {
+      if (item.querySelector('strong')?.textContent.trim() === 'Smart shopping') item.remove();
+    });
+    const section = document.createElement('section');
+    section.className = 'workspace-tools';
+    section.innerHTML = '<div class="side-title">Workspace tools & games</div><div class="quickgrid">' +
+      '<button class="quick" data-action="navigate:inventory"><span class="quickglyph">▤</span><strong>Inventory</strong><small>Track household stock and essentials</small></button>' +
+      '<button class="quick" data-action="navigate:pdfscan"><span class="quickglyph">▧</span><strong>PDF Scanner</strong><small>Capture pages and save a PDF locally</small></button>' +
+      '<a class="quick" href="./games/kenya-highway-pro.html"><span class="quickglyph">🚛</span><strong>Kenya Highway PRO</strong><small>Realistic truck driving and tilt controls</small></a>' +
+      '<a class="quick" href="./games/nexus-v-quantum-party-matrix.html"><span class="quickglyph">⚛</span><strong>NEXUS-V Party Matrix</strong><small>Quantum word and party game</small></a>' +
+      '<button class="quick" data-feature="arcade"><span class="quickglyph">✦</span><strong>Cyber Arcade</strong><small>Play Cyber Serpent and Void Interceptor</small></button>' +
+      '</div>';
+    panel.appendChild(section);
+  }
+
   const oldRender = render;
   render = function () {
     oldRender();
@@ -63,6 +79,8 @@
     if (state.view === 'ringtones') document.querySelector('#panel').innerHTML = ringtoneView();
     if (state.view === 'arcade') document.querySelector('#panel').innerHTML = arcadeView();
     if (state.view === 'home') addHomeShortcut();
+    addWorkspaceTools();
+    document.querySelectorAll('.home-quickgrid [data-game-link]').forEach(item => item.remove());
     installArcadeBottomNav();
     updateBottomNav();
   };
@@ -79,6 +97,12 @@
     updateBottomNav();
     if (state.view !== 'pdfscan') stopScanner();
   });
+
+  // Older cached home-page enhancers may still try to append game tiles to the
+  // overview. Remove those tiles immediately so games remain inside Workspace.
+  new MutationObserver(() => {
+    if (state.view === 'home') document.querySelectorAll('.home-quickgrid [data-game-link]').forEach(item => item.remove());
+  }).observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('click', event => {
     const homeLink = event.target.closest('[data-feature="ringtones"]');
