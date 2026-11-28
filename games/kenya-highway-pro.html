@@ -502,6 +502,14 @@ Check your Browserslist config to be sure that your targets are set up correctly
                     <strong class="text-emerald-300"><span id="game-fps">--</span> FPS <span class="text-slate-500">·</span> <span id="game-render-scale">1.5x</span></strong>
                 </div>
 
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-slate-200 font-bold">SECONDARY HUD OVERLAYS</div>
+                        <div class="text-[10px] text-slate-500 mt-0.5">Hide traffic, telemetry and notification panels for a cleaner drive.</div>
+                    </div>
+                    <button type="button" onclick="document.querySelector('.sfn-hud-toggle')?.click()" class="btn-press shrink-0 px-3 py-2 rounded-lg bg-slate-800 border border-cyan-400/50 text-cyan-200 font-mono text-[10px] font-bold">TOGGLE HUD</button>
+                </div>
+
                 <!-- Controls Summary -->
                 <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 space-y-1">
                     <div><strong class="text-white">WHEEL MODE:</strong> Drag the rotary steering wheel left/right.</div>
@@ -513,6 +521,7 @@ Check your Browserslist config to be sure that your targets are set up correctly
     </div>
 
     <!-- Gameplay engine is kept in a separate JavaScript module for maintainability. -->
+    <script src="./game-preferences.js"></script>
     <script src="./kenya-highway-pro.js"></script>
 </body>
 </html>
